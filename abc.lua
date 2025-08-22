@@ -1409,7 +1409,7 @@ local function FavoritePets()
         if tool:IsA("Tool") and tool:GetAttribute("ItemType") == "Pet" and tool:GetAttribute("d") == false then 
             local petName, petWeight, petAge = extractPetDetails(tool.Name)
             -- Use our new helper function to check the setting
-            print("pet for sale: ",petName)
+            print("pet for sale: " .. petName)
             local petToSell = isPetMarkedForSale(petName)
             local requires_fav = false
             -- if pet not in the list then fav it
