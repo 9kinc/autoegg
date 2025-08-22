@@ -1356,6 +1356,9 @@ local function placeMissingEggs(myFarm)
         local placePos = table.remove(availablePositions)
 
         -- FIX #2: Equip the tool and then immediately check if it was successful.
+        if eggToolToEquip.Parent == null then
+            break
+        end
         humanoid:EquipTool(eggToolToEquip)
         task.wait(0.1) -- Brief wait to ensure the parent property updates.
 
