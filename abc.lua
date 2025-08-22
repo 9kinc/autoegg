@@ -295,9 +295,9 @@ end
 
 --  What eggs can we place? should have a checkbox toggle next to them to enable disable, also this is the order the script places the eggs. top to bottom. ui must allow to order them.
 local eggs_to_place_array = {
-
-    "Rainbow Premium Primal Egg",
     "Premium Primal Egg",
+    "Rainbow Premium Primal Egg",
+   
     --"Zen Egg", 
    -- "Anti Bee Egg",
     --"Paradise Egg",
@@ -832,10 +832,20 @@ local function CheckAnyEggsToHatch(myfarm)
             local TimeToHatch = obj:GetAttribute("TimeToHatch");
             local OBJECT_UUID = obj:GetAttribute("OBJECT_UUID");
             local READY = obj:GetAttribute("READY"); -- not used, always says ready 
-            if TimeToHatch > 0 then
-                -- store uuid
-                canh = false
-            end
+            
+              if FSettings.is_session_based then
+                if TimeToHatch == 0 then
+                    return true
+                end
+                
+              else 
+                if TimeToHatch > 0 then
+                    -- store uuid
+                    canh = false  
+                end
+              end
+            
+           
         end
     end 
       
@@ -1757,7 +1767,7 @@ local function SessionLoop()
 
         lbl_stats:SetText("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
-        task.wait(2)
+        task.wait(0.1)
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
@@ -1867,6 +1877,10 @@ local function SessionLoop()
 
         lbl_stats:SetText("Favouriting new pets...")
         FavoritePets()
+        task.wait(1)
+        
+        lbl_stats:SetText("Quick sell")
+        SellAllPetsUnFavorite()
         task.wait(0.1)
 
         -- Update and save tracking data
