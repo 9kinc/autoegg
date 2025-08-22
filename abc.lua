@@ -1445,7 +1445,7 @@ local function FavoritePets()
     end
 
     -- Give server a moment to update attributes
-    task.wait(1.5)
+    task.wait(1)
 
     -- Verification loop
     local failed = {}
@@ -1483,7 +1483,7 @@ local function SellAllPetsUnFavorite()
         SellAllPetsRemote:FireServer();
     end
     
-    task.wait(1.1)
+    task.wait(1)
 end
 
   
@@ -1665,7 +1665,7 @@ local function HatchAllEggsAvailable(myfarm)
             -- This is the direct and correct way to hatch the egg
             if FSettings.is_test == false then
                 PetEggService:FireServer("HatchPet", eggModel)
-                task.wait(0.2)
+                --task.wait(0.2)
             end
             
             -- A small delay is good practice to avoid overwhelming the server
@@ -1764,7 +1764,7 @@ local function SessionLoop()
             lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. waiting_for_hatch_count)
             waiting_for_hatch_count = waiting_for_hatch_count + 1
-            task.wait(1.5) -- Wait 30 seconds before checking again
+            task.wait(0.5) -- Wait 30 seconds before checking again
         end
 
         -- If the loop was stopped while waiting, exit now.
@@ -1774,7 +1774,7 @@ local function SessionLoop()
 
         print("SessionLoop: Eggs are ready! Starting cycle.")
         lbl_stats:SetText("Eggs ready! Starting cycle.")
-        task.wait(1)
+        task.wait(0.2)
         BeforeUpdateEggCountForAllEggs()
 
         --================= SELL CYCLE =================
@@ -1782,10 +1782,10 @@ local function SessionLoop()
         if FavoritePets() == false then
             lbl_stats:SetText("Failed to fav. Retrying cycle in 5s...")
             print("SessionLoop Error: Failed to favorite pets. Retrying cycle.")
-            task.wait(5)
+            task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
         end
-        task.wait(1)
+        task.wait(0.3)
 
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
@@ -1805,16 +1805,16 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Selling pets...")
-        task.wait(1) -- Wait for sell buffs to apply
+        task.wait(0.3) -- Wait for sell buffs to apply
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
-        task.wait(1)
+        task.wait(0.3)
         lbl_stats:SetText("Selling complete.")
         AfterUpdateEggCountForAllEggs()
-        task.wait(0.5)
+        task.wait(0.3)
         got_eggs_back = FindEggLostGainDiff()
-        task.wait(0.5)
+        task.wait(0.3)
 
         --================= HATCH CYCLE =================
         -- Place Hatching Team (Team 2)
@@ -1849,16 +1849,16 @@ local function SessionLoop()
             --break
         end
         lbl_stats:SetText("Hatching Complete.")
-        task.wait(0.5)
+        task.wait(0.1)
 
         --================= CLEANUP AND REPORTING =================
         recovered_eggs = GetCountEggsOnFarm()
-        task.wait(0.3)
+        task.wait(0.1)
 
         lbl_stats:SetText("Placing new eggs...")
         --UnEquipAllPets()
         placeMissingEggs(mFarm) -- This function will set is_forced_stop if it runs out of eggs.
-        task.wait(0.2)
+        task.wait(0.1)
 
         if is_forced_stop then -- CRITICAL STOP: This cannot be recovered by retrying.
             lbl_stats:SetText("Out of eggs to place. Stopping farm.")
@@ -1867,7 +1867,7 @@ local function SessionLoop()
 
         lbl_stats:SetText("Favouriting new pets...")
         FavoritePets()
-        task.wait(0.2)
+        task.wait(0.1)
 
         -- Update and save tracking data
         local hatched_this_cycle = #newlyHatchedNames
@@ -1881,12 +1881,12 @@ local function SessionLoop()
         if canSendReport then
             lbl_stats:SetText("Sending report...")
             HatchReport()
-            task.wait(0.2)
+            task.wait(0.1)
         end
 
         lbl_stats:SetText("Cycle finished. Waiting for next batch.")
         print("SessionLoop: Cycle finished. Looping again.")
-        task.wait(1) -- A brief pause before checking for ready eggs again
+        task.wait(0.3) -- A brief pause before checking for ready eggs again
 
     end -- End of main while loop
 
