@@ -72,14 +72,11 @@ local FSettings = {
     sell_pets = {
         -- Rainbow Premium Primal Egg
         ["Rainbow Premium Primal Egg"] = {
-            ["Rainbow Parasaurolophus"] = true,
-            ["Rainbow Iguanodon"] = true,
-            ["Rainbow Pachycephalosaurus"] = true,
-            ["Rainbow Dilophosaurus"] = true,
-            ["Rainbow Ankylosaurus"] = true,
-            ["Rainbow Spinosaurus"] = true
+            ["Rainbow Parasaurolophus"] = true, ["Rainbow Iguanodon"] = true, ["Rainbow Pachycephalosaurus"] = true, 
+            ["Rainbow Dilophosaurus"] = true, ["Rainbow Ankylosaurus"] = true, ["Rainbow Spinosaurus"] = true
         },
         -- Premium Primal Egg
+         
 
         -- Rare Egg
         ["Rare Egg"] = {
@@ -834,8 +831,7 @@ local function CheckAnyEggsToHatch(myfarm)
             local EggName = obj:GetAttribute("EggName")
             local TimeToHatch = obj:GetAttribute("TimeToHatch");
             local OBJECT_UUID = obj:GetAttribute("OBJECT_UUID");
-            local READY = obj:GetAttribute("READY"); -- not used, always says ready
-            --local isValidEggName = eggs_to_hatch_array[EggName]; -- check if this is the egg we can hatch
+            local READY = obj:GetAttribute("READY"); -- not used, always says ready 
             if TimeToHatch > 0 then
                 -- store uuid
                 canh = false
