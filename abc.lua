@@ -1887,7 +1887,7 @@ local function SessionLoop()
                 continue -- Restart the loop
             end
         end
-        task.wait(0.4)
+        task.wait(3.4)
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
