@@ -1434,7 +1434,7 @@ local function FavoritePets()
             end
             
             if petName == "Rainbow Dilophosaurus" or petName  == "Rainbow Spinosaurus" then
-                sell_w = 2.86
+                sell_w = 2.54
             else
                 sell_w = 7
             end
