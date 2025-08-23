@@ -888,6 +888,8 @@ local function CheckAnyEggsToHatch(myfarm)
     
     if not mObjects_Physical then
         warn("issue finding Objects_Physical")
+        lbl_stats:SetText("CheckAnyEggsToHatch: not found Objects_Physical")
+        task.wait(1)
         return false
     end
     
@@ -898,7 +900,9 @@ local function CheckAnyEggsToHatch(myfarm)
     local eggs_on_farm_array = mObjects_Physical:GetChildren();
     if #eggs_on_farm_array == 0 then
         -- we need to place more eggs
-        warn("not eggs found")
+        warn("No eggs found on farm")
+        lbl_stats:SetText("CheckAnyEggsToHatch: No eggs found on farm")
+        task.wait(1)
         return true
     end
     
