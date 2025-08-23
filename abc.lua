@@ -1816,7 +1816,7 @@ local function UpdateUITeamCount()
     local total_p = GetMaxPetCapacity()
     lbl_selected_team1_count:SetText("Selected: " .. tm1_count .. "/" .. total_p)
     lbl_selected_team2_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
-    lbl_selected_team3_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
+    lbl_selected_team3_count:SetText("Selected: " .. tm3_count .. "/" .. total_p)
 end
 
 
