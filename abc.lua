@@ -36,9 +36,11 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deivi
 local lbl_stats
 local lbl_selected_team1_count
 local lbl_selected_team2_count
+local lbl_selected_team3_count
 
 local MultiDropdownSellTeam
 local MultiDropdownHatchTeam
+local MultiDropdownEggReductionTeam
 
 
 
@@ -1731,15 +1733,17 @@ end
 
 -- UI
 local function UpdateUITeamCount()
-    if not lbl_selected_team1_count or not lbl_selected_team2_count then
+    if not lbl_selected_team1_count or not lbl_selected_team2_count or not lbl_selected_team3_count then
         return
     end
 
     local tm1_count = #FSettings.team1
     local tm2_count = #FSettings.team2
+    local tm3_count = #FSettings.team3
     local total_p = GetMaxPetCapacity()
     lbl_selected_team1_count:SetText("Selected: " .. tm1_count .. "/" .. total_p)
     lbl_selected_team2_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
+    lbl_selected_team3_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
 end
 
 
@@ -2230,6 +2234,7 @@ local function PetTeamsUi()
     })
     local GroupBoxSellingTeam = TeamsTab:AddLeftGroupbox("Selling Team", "badge-dollar-sign")
     local GroupBoxHatchingTeam = TeamsTab:AddRightGroupbox("Hatching Team", "egg")
+    local GroupBoxEggReductionTeam = TeamsTab:AddRightGroupbox("Egg Reduction Team", "egg")
      
    
     
@@ -2243,9 +2248,14 @@ local function PetTeamsUi()
         DoesWrap = true
     })
     
+     local lvl_eggreductioninfo = GroupBoxEggReductionTeam:AddLabel({
+        Text = "Please select a team that will be placed if eggs are not ready. Teams are 💾 auto saved.",
+        DoesWrap = true
+    })
+    
     lbl_selected_team1_count = GroupBoxSellingTeam:AddLabel("-")
     lbl_selected_team2_count = GroupBoxHatchingTeam:AddLabel("-")
-     
+    lbl_selected_team3_count = GroupBoxEggReductionTeam:AddLabel("-")
    
     UpdateUITeamCount()
     
@@ -2423,6 +2433,101 @@ local function PetTeamsUi()
             
         end
     })
+    
+    
+    
+    
+    -- =================== TEAM 3 - Egg Time Reduction Team
+    
+    
+      -- Team 3, egg time reduction team
+    local team3data = ConvertUUIDToPetNamesPairs(FSettings.team3)
+    print("team3: ", HttpService:JSONEncode(team3data));
+    MultiDropdownEggReductionTeam = GroupBoxEggReductionTeam:AddDropdown("dropdownEggReductionTeam", {
+        Values = GetPetsCacheAsTable(),
+        Default = {}, -- Default selected values for multi-select
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "🐣⏳ Egg Reduction Team",
+        Callback = function(Values)
+            local tmp_tbl = {} 
+            for Value, Selected in pairs(Values) do
+                if Selected then
+                    local _uuid = extractUUIDFromString(Value)
+                    if _uuid then
+                        table.insert(tmp_tbl,_uuid)
+                    end 
+                end
+            -- loop ends
+            end
+            
+            local count_vals = #tmp_tbl
+            if count_vals > GetMaxPetCapacity() then
+                Library:Notify("Team size maxed", 2)
+                return false
+            else
+                warn("Saved Team 3 called", HttpService:JSONEncode(Values))
+                FSettings.team3 = tmp_tbl
+                if not is_value_selection_update then 
+                    SaveData()
+                    UpdateUITeamCount()
+                    Library:Notify("Egg Reduction Team Updated", 2)
+                    is_value_selection_update = false
+                end
+                
+            end
+        end
+    })
+    
+    is_value_selection_update = true
+    MultiDropdownEggReductionTeam:SetValue(team2data)
+    
+    
+    GroupBoxEggReductionTeam:AddDivider() 
+    
+    local ButtonEqiupTeam3 = GroupBoxEggReductionTeam:AddButton({
+        Text = "✅ Equip",
+        Func = function() 
+            if #FSettings.team3 == 0 then
+                Library:Notify("Team is empty", 2)
+            else
+                EquipPets(FSettings.team3)
+            end
+            
+        end 
+    })
+    
+    -- Unequip
+    ButtonEqiupTeam3:AddButton({
+        Text = "❌ Unequip All",
+        Func = function()
+            UnEquipAllPets()
+            print("--- reload teams")
+            UpdatePetData()
+        end
+    })
+    
+    local ToggleTeam3Disable = GroupBoxEggReductionTeam:AddToggle("ToggleTeam3Disable", {
+        Text = "Disable Team 3?",
+        Default = FSettings.disable_team3,
+        Tooltip = "Disabled teams won't be used.",
+        Callback = function(Value)
+            if Value then
+                FSettings.disable_team3 = Value
+                SaveData()
+                Library:Notify("Team3 disabled", 2)
+            else
+                FSettings.disable_team3 = Value
+                SaveData()
+                Library:Notify("Team3 Enabled", 2)
+            end
+            
+        end
+    })
+    
+    
+    
     
     
 end
