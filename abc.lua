@@ -1854,15 +1854,15 @@ local function SessionLoop()
 
         lbl_stats:SetText("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
-        task.wait(0.1)
+        task.wait(0.4)
         
         
         --========== Egg Timer Reduction Team
         
         local is_ready_hatch = CheckAnyEggsToHatch(mFarm)
-        task.wait(0.2);
+        task.wait(0.5);
         local eggs_onfarm = GetCountEggsOnFarm()
-        task.wait(0.2);
+        task.wait(0.5);
         lbl_stats:SetText("Check Egg Reduction Team for placement..." .. tostring(is_ready_hatch))
        
         if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
@@ -1899,7 +1899,7 @@ local function SessionLoop()
 
         print("SessionLoop: Eggs are ready! Starting cycle.")
         lbl_stats:SetText("Eggs ready! Starting cycle.")
-        task.wait(0.2)
+        task.wait(0.5)
         BeforeUpdateEggCountForAllEggs()
  
         --================= HATCH CYCLE =================
@@ -1922,7 +1922,7 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Waiting for hatch buffs...")
-        task.wait(3)
+        task.wait(4)
 
         lbl_stats:SetText("Hatching all available eggs...")
         UpdatePlayerStats()
@@ -1935,7 +1935,7 @@ local function SessionLoop()
             --break
         end
         lbl_stats:SetText("Hatching Complete.")
-        task.wait(1)
+        task.wait(3)
         
         
         
@@ -1948,7 +1948,7 @@ local function SessionLoop()
             task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
         end
-        task.wait(1)
+        task.wait(2)
 
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
@@ -1972,7 +1972,7 @@ local function SessionLoop()
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
-        task.wait(1)
+        task.wait(2)
         lbl_stats:SetText("Selling complete.")
         AfterUpdateEggCountForAllEggs()
         
@@ -1982,7 +1982,7 @@ local function SessionLoop()
         lbl_stats:SetText("Placing new eggs...")
         --UnEquipAllPets()
         placeMissingEggs(mFarm) -- This function will set is_forced_stop if it runs out of eggs.
-        task.wait(0.3)
+        task.wait(0.5)
 
         if is_forced_stop then -- CRITICAL STOP: This cannot be recovered by retrying.
             lbl_stats:SetText("Out of eggs to place. Stopping farm.")
