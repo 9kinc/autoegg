@@ -2720,7 +2720,7 @@ local function SettingsUi()
     })
 
     local GroupBoxWebhook = UISettingsTab:AddLeftGroupbox("Webhook URL", "link")
-    local GroupBoxOtherSettings = UISettingsTab:AddLeftGroupbox("Other Settings", "settings-2")
+    local GroupBoxOtherSettings = UISettingsTab:AddRightGroupbox("Other Settings", "settings-2")
  
     -- webhook url
      local lbl_webhook_info = GroupBoxWebhook:AddLabel({
