@@ -1872,7 +1872,7 @@ local function SessionLoop()
         task.wait(0.2);
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.2);
-        lbl_stats:SetText("Check Egg Reduction Team for placement..." .. eggs_onfarm)
+        lbl_stats:SetText("Check Egg Reduction Team for placement..." .. tostring(is_ready_hatch))
        
         if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
             lbl_stats:SetText("Placing egg reduction team..")
@@ -1908,7 +1908,7 @@ local function SessionLoop()
 
         print("SessionLoop: Eggs are ready! Starting cycle.")
         lbl_stats:SetText("Eggs ready! Starting cycle.")
-        task.wait(0.2)
+        task.wait(2.2)
         BeforeUpdateEggCountForAllEggs()
 
         --================= SELL CYCLE =================
@@ -1919,7 +1919,7 @@ local function SessionLoop()
             task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
         end
-        task.wait(0.3)
+        task.wait(2.3)
 
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
@@ -1939,7 +1939,7 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Selling pets...")
-        task.wait(0.3) -- Wait for sell buffs to apply
+        task.wait(2.3) -- Wait for sell buffs to apply
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
