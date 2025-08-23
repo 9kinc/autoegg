@@ -906,7 +906,7 @@ local function CheckAnyEggsToHatch(myfarm)
         return true
     end
     
-    local canh = true
+    local canh = false
 
     for _, obj in ipairs(eggs_on_farm_array) do
         if obj.Name == "PetEgg" and obj:IsA("Model") then
