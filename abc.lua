@@ -1430,6 +1430,13 @@ local function FavoritePets()
                 sell_w = 2.84
             end
             
+            if petName == "Rainbow Dilophosaurus" or petName  == "Rainbow Spinosaurus" then
+                sell_w = 2.84
+            else
+                sell_w = 7
+            end
+            
+            
             -- if pet is in the light but weight is bigger than sell weight then fav it also
             if petToSell and petWeight >= sell_w then
                 requires_fav = true 
