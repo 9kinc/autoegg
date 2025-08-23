@@ -679,7 +679,7 @@ local function HandleNotificationX(arg)
     if strongContains(arg,ev_lucky_sell) then 
         -- egg back, seal egg back
         warn("Notification"..tostring(arg));
-        --got_eggs_back = got_eggs_back + 1
+        got_eggs_back = got_eggs_back + 1
     end
 
      if strongContains(arg,ev_hatch_lucky) then 
@@ -1833,16 +1833,6 @@ task.wait(0.2);
 
 
 
-
-
-
-
-
-
-
- 
-
-
 local waiting_for_hatch_count = 0
 
 local function SessionLoop()
@@ -1984,12 +1974,8 @@ local function SessionLoop()
         task.wait(0.3)
         lbl_stats:SetText("Selling complete.")
         AfterUpdateEggCountForAllEggs()
-        task.wait(0.3)
-        got_eggs_back = FindEggLostGainDiff()
-        task.wait(0.3)
-
-        --================= CLEANUP AND REPORTING =================
-        --recovered_eggs = GetCountEggsOnFarm()
+        
+        --================= CLEANUP AND REPORTING ================= 
         task.wait(0.1)
 
         lbl_stats:SetText("Placing new eggs...")
@@ -2014,7 +2000,7 @@ local function SessionLoop()
         if canSendReport then
             lbl_stats:SetText("Sending report...")
             HatchReport()
-            task.wait(0.1)
+            task.wait(0.3)
         end
 
         lbl_stats:SetText("Cycle finished. Waiting for next batch.")
