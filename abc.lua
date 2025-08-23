@@ -1947,7 +1947,7 @@ local function SessionLoop()
             task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
         end
-        task.wait(0.3)
+        task.wait(1)
 
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
@@ -1971,17 +1971,17 @@ local function SessionLoop()
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
-        task.wait(0.3)
+        task.wait(1)
         lbl_stats:SetText("Selling complete.")
         AfterUpdateEggCountForAllEggs()
         
         --================= CLEANUP AND REPORTING ================= 
-        task.wait(0.1)
+        task.wait(0.4)
 
         lbl_stats:SetText("Placing new eggs...")
         --UnEquipAllPets()
         placeMissingEggs(mFarm) -- This function will set is_forced_stop if it runs out of eggs.
-        task.wait(0.1)
+        task.wait(0.3)
 
         if is_forced_stop then -- CRITICAL STOP: This cannot be recovered by retrying.
             lbl_stats:SetText("Out of eggs to place. Stopping farm.")
