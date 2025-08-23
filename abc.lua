@@ -918,8 +918,6 @@ local function CheckAnyEggsToHatch(myfarm)
 
             if FSettings.is_hatch_in_batch == true then
                 if TimeToHatch > 0 then
-                    lbl_stats:SetText("Eggs timer not 0 ")
-                    task.wait(5)
                     return false
                 end
             else
@@ -929,7 +927,7 @@ local function CheckAnyEggsToHatch(myfarm)
             end
 
         end
-    end 
+    end
 
     return canh;
 end
