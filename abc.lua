@@ -1425,8 +1425,13 @@ local function FavoritePets()
                 end
             end
             
+            local sell_w = tonumber(FSettings.sell_weight)
+            if sell_w == 3 then
+                sell_w = 2.84
+            end
+            
             -- if pet is in the light but weight is bigger than sell weight then fav it also
-            if petToSell and petWeight >= tonumber(FSettings.sell_weight) then
+            if petToSell and petWeight >= sell_w then
                 requires_fav = true 
             end
 
