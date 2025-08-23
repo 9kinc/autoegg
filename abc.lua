@@ -2305,15 +2305,10 @@ local function PetTeamsUi()
         Description = "Pet Teams",
         Icon = "cat"
     })
-    
-    local TeamsTab2 = TeamsTab:AddTab({
-        Name = "UI Settings",
-        Description = "Customize the UI",
-        Icon = "settings"
-    })
+     
     local GroupBoxSellingTeam = TeamsTab:AddLeftGroupbox("Selling Team", "badge-dollar-sign")
     local GroupBoxHatchingTeam = TeamsTab:AddRightGroupbox("Hatching Team", "egg")
-    local GroupBoxEggReductionTeam = TeamsTab2:AddLeftGroupbox("Egg Reduction Team", "egg")
+    local GroupBoxEggReductionTeam = TeamsTab:AddLeftGroupbox("Egg Reduction Team", "egg")
      
    
     
