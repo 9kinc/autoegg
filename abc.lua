@@ -1921,7 +1921,7 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Waiting for hatch buffs...")
-        task.wait(0.1)
+        task.wait(3)
 
         lbl_stats:SetText("Hatching all available eggs...")
         UpdatePlayerStats()
