@@ -296,8 +296,9 @@ end
 --  What eggs can we place? should have a checkbox toggle next to them to enable disable, also this is the order the script places the eggs. top to bottom. ui must allow to order them.
 local eggs_to_place_array = {
 
+"Premium Primal Egg",
  "Rainbow Premium Primal Egg",
-    "Premium Primal Egg",
+    
    
    
     --"Zen Egg", 
