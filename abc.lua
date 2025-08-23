@@ -1878,7 +1878,7 @@ local function SessionLoop()
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
             lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
-            print("SessionLoop: Eggs not ready, waiting..." .. waiting_for_hatch_count)
+            print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
             task.wait(3) -- Wait 2 seconds before checking again
         end
