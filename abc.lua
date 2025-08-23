@@ -2308,7 +2308,7 @@ local function PetTeamsUi()
      
     local GroupBoxSellingTeam = TeamsTab:AddLeftGroupbox("Selling Team", "badge-dollar-sign")
     local GroupBoxHatchingTeam = TeamsTab:AddRightGroupbox("Hatching Team", "egg")
-    local GroupBoxEggReductionTeam = TeamsTab:AddLeftGroupbox("Egg Reduction Team", "egg")
+    local GroupBoxEggReductionTeam = TeamsTab:AddLeftGroupbox("Egg Reduction Team", "timer-reset")
      
    
     
@@ -2599,6 +2599,11 @@ local function PetTeamsUi()
             
         end
     })
+    
+    
+    
+    -- reset it
+    is_value_selection_update = false
     
     
     
