@@ -907,7 +907,7 @@ local function CheckAnyEggsToHatch(myfarm)
         return true
     end
     
-    local canh = false
+    local canh = true
 
     for _, obj in ipairs(eggs_on_farm_array) do
         if obj.Name == "PetEgg" and obj:IsA("Model") then
@@ -917,7 +917,7 @@ local function CheckAnyEggsToHatch(myfarm)
             local READY = obj:GetAttribute("READY"); -- not used, always says ready
 
             if FSettings.is_hatch_in_batch == true then
-                 if TimeToHatch > 0 then
+                if TimeToHatch > 0 then
                     return false
                 end
             else
