@@ -1868,6 +1868,8 @@ local function SessionLoop()
         task.wait(0.2);
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.2);
+        lbl_stats:SetText("Check Egg Reduction Team for placement...")
+       
         if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
             lbl_stats:SetText("Placing egg reduction team..")
             if UnEquipAllPets() == false then
@@ -1885,7 +1887,7 @@ local function SessionLoop()
                 continue -- Restart the loop
             end
         end
-        
+        task.wait(0.4)
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
