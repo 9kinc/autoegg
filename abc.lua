@@ -1884,7 +1884,7 @@ local function SessionLoop()
             end
             lbl_stats:SetText("[T]Placing egg reduction team...")
             task.wait(0.3)
-            if not EquipPets(FSettings.team1) then
+            if not EquipPets(FSettings.team3) then
                 lbl_stats:SetText("Team 3 failed. Retrying cycle in 5s...")
                 print("SessionLoop Error: Failed to place egg reduction team. Retrying cycle.")
                 task.wait(5)
@@ -2002,11 +2002,7 @@ local function SessionLoop()
         lbl_stats:SetText("Favouriting new pets...")
         FavoritePets()
         task.wait(1)
-        
-        lbl_stats:SetText("Quick sell")
-        SellAllPetsUnFavorite()
-        task.wait(0.1)
-
+         
         -- Update and save tracking data
         local hatched_this_cycle = #newlyHatchedNames
         if hatched_this_cycle > 0 then
