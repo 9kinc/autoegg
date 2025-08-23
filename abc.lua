@@ -47,6 +47,7 @@ local MultiDropdownEggReductionTeam
 -- Save and other settings
 local FSettings = {
     is_test = true,
+    is_hatch_in_batch = false,
     is_session_based = true,
     is_first_time = true,
     is_auto_rejoin = false,
@@ -916,7 +917,7 @@ local function CheckAnyEggsToHatch(myfarm)
             local READY = obj:GetAttribute("READY"); -- not used, always says ready 
             
               if FSettings.is_session_based then
-                if TimeToHatch == 0 then
+                if TimeToHatch == 0 and FSettings.is_hatch_in_batch == true then
                     return true
                 end
                 
@@ -2719,12 +2720,32 @@ local function SettingsUi()
     })
 
     local GroupBoxWebhook = UISettingsTab:AddLeftGroupbox("Webhook URL", "link")
+    local GroupBoxOtherSettings = UISettingsTab:AddLeftGroupbox("Other Settings", "settings-2")
  
     -- webhook url
      local lbl_webhook_info = GroupBoxWebhook:AddLabel({
         Text = "Please enter your webhook url for discord",
         DoesWrap = true
     })
+    
+    
+    --======== Other Settings
+      -- Toggle Send Detailed Report Every Hatch
+    local togHatchReport = GroupBoxOtherSettings:AddToggle("toggleBatchHatch", {
+        Text = "Batch Hatching",
+        Default = FSettings.is_hatch_in_batch,
+        Tooltip = "Hatch when all eggs are ready.",
+        Callback = function(Value)
+            FSettings.is_hatch_in_batch = Value
+            print("Toggle changed to:", Value)
+            SaveData()
+            Library:Notify("Updated", 3)
+        end
+    })
+    
+    
+    
+    --======== WEbhook
     
     local InputWebhook = GroupBoxWebhook:AddInput("inputWebhook", {
     Text = "Webhook Url",
