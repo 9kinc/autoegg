@@ -2233,14 +2233,14 @@ local function PetTeamsUi()
         Icon = "cat"
     })
     
-    local UISettingsTab = Window:AddTab({
+    local TeamsTab2 = Window:AddTab({
         Name = "UI Settings",
         Description = "Customize the UI",
         Icon = "settings"
     })
     local GroupBoxSellingTeam = TeamsTab:AddLeftGroupbox("Selling Team", "badge-dollar-sign")
     local GroupBoxHatchingTeam = TeamsTab:AddRightGroupbox("Hatching Team", "egg")
-    local GroupBoxEggReductionTeam = TeamsTab:AddRightGroupbox("Egg Reduction Team", "egg")
+    local GroupBoxEggReductionTeam = TeamsTab2:AddLeftGroupbox("Egg Reduction Team", "egg")
      
    
     
