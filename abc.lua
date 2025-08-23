@@ -1429,15 +1429,15 @@ local function FavoritePets()
             end
             
             local sell_w = tonumber(FSettings.sell_weight)
-            if sell_w == 3 then
-                sell_w = 2.86
-            end
+            -- if sell_w == 3 then
+            --     sell_w = 2.86
+            -- end
             
-            if petName == "Rainbow Dilophosaurus" or petName  == "Rainbow Spinosaurus" then
-                sell_w = 2.54
-            else
-                sell_w = 7
-            end
+            -- if petName == "Rainbow Dilophosaurus" or petName  == "Rainbow Spinosaurus" then
+            --     sell_w = 2.54
+            -- else
+            --     sell_w = 7
+            -- end
             
             
             -- if pet is in the light but weight is bigger than sell weight then fav it also
@@ -1965,7 +1965,7 @@ local function MainLoop()
 
         local serverv = GetServerVersion();
         if extractFirstNumber(serverv) > 1760 then
-            lbl_stats:SetText("Wrong server version.. rejoin") 
+            --lbl_stats:SetText("Wrong server version.. rejoin") 
             --task.wait(2); -- wait in case user want to cancel
             --rejoinS();
             --break
@@ -2169,12 +2169,12 @@ local function HomeDashboardUi()
                 SaveData()
                 -- start the task here
                 if not main_thread then
-                    if FSettings.is_session_based then
-                        main_thread = task.spawn(SessionLoop);
-                    else
-                        main_thread = task.spawn(MainLoop);
-                    end
-                   
+                    -- if FSettings.is_session_based then
+                    --     main_thread = task.spawn(SessionLoop);
+                    -- else
+                    --     main_thread = task.spawn(MainLoop);
+                    -- end
+                     main_thread = task.spawn(MainLoop);
                 else
                     Library:Notify("Farm is already running", 3)
                 end
@@ -2602,5 +2602,5 @@ CheckAndSendTimedReports()
 --auto start the rejoin if already started before
 if not main_thread and FSettings.is_running and FSettings.is_auto_rejoin then
     -- start the task here
-    --main_thread = task.spawn(MainLoop);
+    main_thread = task.spawn(MainLoop);
 end
