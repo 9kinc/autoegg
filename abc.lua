@@ -63,6 +63,9 @@ local FSettings = {
     disable_team2 = false,
     disable_team3 = false,
     disable_team4 = false,
+    disable_team5 = false, -- added
+    disable_team6 = false, -- adedd
+    disable_team7 = false, -- added
     send_everyhatch_alert = true,
     send_rare_pet_alert = true,
     send_big_pet_alert = true,
@@ -70,6 +73,11 @@ local FSettings = {
     webhook_url = WEBHOOK_URL,
     team1 = {},
     team2 = {},
+    team3 = {}, -- added
+    team4 = {}, -- added
+    team5 = {}, -- added
+    team6 = {}, -- added
+    team7 = {}, -- added
 
     sell_pets = {
         -- Rainbow Premium Primal Egg
@@ -252,38 +260,103 @@ end
 local save_fname = "a_acssave_v15.json"
 
 
-local function SaveData()
- -- Encode table into JSON
-    --FSettings.team1 = {}
+-- local function SaveData()
+--  -- Encode table into JSON
+--     --FSettings.team1 = {}
     
-    local json = HttpService:JSONEncode(FSettings) 
-    writefile(save_fname, json)
-    print(json)
-    print("✅ Data saved to " .. save_fname) 
+--     local json = HttpService:JSONEncode(FSettings) 
+--     writefile(save_fname, json)
+--     print(json)
+--     print("✅ Data saved to " .. save_fname) 
+-- end
+
+-- local function LoadData()
+--     print("loading saved data");
+--     if isfile(save_fname) then
+--         local json = readfile(save_fname)
+--         if not json then return end
+--         local decoded = HttpService:JSONDecode(json)
+--         print(json) 
+--         -- merge loaded values into defaults
+--         for k,v in pairs(decoded) do
+--             if FSettings[k] ~= nil then  -- only overwrite known keys
+--                 FSettings[k] = v
+--             end
+--         end
+--         print("📂 Data loaded from " .. save_fname)
+--     else
+--         print("⚠️ No save file found, using defaults")
+--     end
+-- end
+ 
+-- -- load if we have any data
+-- LoadData();
+-- task.wait(0.1);
+ 
+
+-- Saving and loading
+local function SaveData()
+    local success, json = pcall(function()
+        return HttpService:JSONEncode(FSettings)
+    end)
+
+    if success then
+        writefile(save_fname, json)
+        print("✅ Data saved to " .. save_fname)
+    else
+        warn("❌ Error: Failed to encode settings to JSON. Data not saved.")
+    end
 end
 
 local function LoadData()
-    print("loading saved data");
-    if isfile(save_fname) then
-        local json = readfile(save_fname)
-        if not json then return end
-        local decoded = HttpService:JSONDecode(json)
-        print(json) 
-        -- merge loaded values into defaults
-        for k,v in pairs(decoded) do
-            if FSettings[k] ~= nil then  -- only overwrite known keys
-                FSettings[k] = v
+    print("loading saved data")
+    if not isfile(save_fname) then
+        print("⚠️ No save file found, using defaults")
+        return
+    end
+
+    local json = readfile(save_fname)
+    if not json or json == "" then
+        print("⚠️ Save file is empty, using defaults")
+        return
+    end
+
+    local success, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+    if not success then
+        print("❌ Error decoding JSON from save file. It might be corrupted. Using defaults.")
+        return
+    end
+
+    -- The deep merge logic is now inside this function
+    local function merge(target, source)
+        for key, sourceValue in pairs(source) do
+            local targetValue = target[key]
+            if type(sourceValue) == "table" and type(targetValue) == "table" then
+                merge(targetValue, sourceValue) -- Recurse for nested tables
+            else
+                target[key] = sourceValue -- Overwrite non-table values
             end
         end
-        print("📂 Data loaded from " .. save_fname)
-    else
-        print("⚠️ No save file found, using defaults")
+        return target
     end
+
+    -- Merge the loaded data into the default settings
+    FSettings = merge(FSettings, decoded)
+    print("📂 Data loaded from " .. save_fname)
 end
- 
--- load if we have any data
-LoadData();
+
+-- Call LoadData() once at the start of your script
+LoadData()
 task.wait(0.1);
+-- Now your script can continue, and FSettings will be correctly populated.
+print("Loading complete. Main script can proceed.")
+
+
+
+
+
+
+
 
 -- If we are here for the first time
 if FSettings.is_first_time then
