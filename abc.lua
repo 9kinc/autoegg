@@ -1795,13 +1795,7 @@ local function rejoinS()
         return
     end
     warn("Rejoin...");
-    if FSettings.is_test == false then 
-        local placeId = game.PlaceId -- current game place ID
-        local jobId = "830e3f7c-115a-488b-8904-ed00c56118e0" -- server JobId
-        
-        TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
-    
-        
+    if FSettings.is_test == false then  
         TeleportService:Teleport(game.PlaceId)
     end
 end
@@ -2287,8 +2281,8 @@ local function HomeDashboardUi()
             end
         end,
     })
-    
-    
+
+
     -- Always capture the reference returned by AddToggle
     local MyToggle = GroupAutoFarm:AddToggle("MyToggle", {
         Text = "Test Mode",
@@ -2301,7 +2295,15 @@ local function HomeDashboardUi()
         end
     })
 
-    
+
+      local btnRejoin = GroupAutoFarm:AddButton({
+        Text = "Rejoin Server",
+        Func = function()
+            rejoinS()
+        end,
+    })
+
+
 end
 HomeDashboardUi();
 
