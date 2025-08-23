@@ -1860,13 +1860,39 @@ local function SessionLoop()
         lbl_stats:SetText("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
         task.wait(0.1)
+        
+        
+        --========== Egg Timer Reduction Team
+        
+        local is_ready_hatch = CheckAnyEggsToHatch(mFarm)
+        task.wait(0.2);
+        local eggs_onfarm = GetCountEggsOnFarm()
+        task.wait(0.2);
+        if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
+            lbl_stats:SetText("Placing egg reduction team..")
+            if UnEquipAllPets() == false then
+                lbl_stats:SetText("[reduction team] Failed to unequip. Retrying cycle in 5s...")
+                print("reduction team Error: Failed to unequip pets. Retrying cycle.")
+                task.wait(5)
+                continue -- Restart the loop
+            end
+            lbl_stats:SetText("[T]Placing egg reduction team...")
+            task.wait(0.3)
+            if not EquipPets(FSettings.team1) then
+                lbl_stats:SetText("Team 3 failed. Retrying cycle in 5s...")
+                print("SessionLoop Error: Failed to place egg reduction team. Retrying cycle.")
+                task.wait(5)
+                continue -- Restart the loop
+            end
+        end
+        
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
             lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. waiting_for_hatch_count)
             waiting_for_hatch_count = waiting_for_hatch_count + 1
-            task.wait(0.5) -- Wait 30 seconds before checking again
+            task.wait(3) -- Wait 2 seconds before checking again
         end
 
         -- If the loop was stopped while waiting, exit now.
@@ -2246,12 +2272,12 @@ local function HomeDashboardUi()
                 SaveData()
                 -- start the task here
                 if not main_thread then
-                    -- if FSettings.is_session_based then
-                    --     main_thread = task.spawn(SessionLoop);
-                    -- else
-                    --     main_thread = task.spawn(MainLoop);
-                    -- end
-                     main_thread = task.spawn(MainLoop);
+                    if FSettings.is_session_based then
+                        main_thread = task.spawn(SessionLoop);
+                    else
+                        main_thread = task.spawn(MainLoop);
+                    end
+                    -- main_thread = task.spawn(MainLoop);
                 else
                     Library:Notify("Farm is already running", 3)
                 end
@@ -2363,7 +2389,7 @@ local function PetTeamsUi()
                 return false
             else
                 FSettings.team1 = tmp_tbl
-                if not is_value_selection_update then
+                if is_value_selection_update == false then
                     SaveData()
                     UpdateUITeamCount()
                     Library:Notify("Sell Team Updated", 2)
@@ -2451,7 +2477,7 @@ local function PetTeamsUi()
             else
                 warn("Saved Team 2 called", HttpService:JSONEncode(Values))
                 FSettings.team2 = tmp_tbl
-                if not is_value_selection_update then 
+                if is_value_selection_update == false then 
                     SaveData()
                     UpdateUITeamCount()
                     Library:Notify("Hatch Team Updated", 2)
@@ -2543,7 +2569,7 @@ local function PetTeamsUi()
             else
                 warn("Saved Team 3 called", HttpService:JSONEncode(Values))
                 FSettings.team3 = tmp_tbl
-                if not is_value_selection_update then 
+                if is_value_selection_update == false then 
                     SaveData()
                     UpdateUITeamCount()
                     Library:Notify("Egg Reduction Team Updated", 2)
@@ -2784,8 +2810,11 @@ SettingsUi()
  
 CheckAndSendTimedReports()
 
---auto start the rejoin if already started before
+--auto start the rejoin if already started before #no auto start atm
 if not main_thread and FSettings.is_running and FSettings.is_auto_rejoin then
     -- start the task here
-    main_thread = task.spawn(MainLoop);
+    if FSettings.is_session_based then
+        
+    end
+    --main_thread = task.spawn(MainLoop);
 end
