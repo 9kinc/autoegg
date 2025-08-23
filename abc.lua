@@ -341,7 +341,7 @@ local function LoadData()
     end
 
     -- Merge the loaded data into the default settings
-    FSettings = merge(FSettings, decoded)
+    merge(FSettings, decoded)
     print("📂 Data loaded from " .. save_fname)
 end
 
@@ -2602,7 +2602,8 @@ local function PetTeamsUi()
     
     
     
-    -- reset it
+    -- reset it and update and visuals
+    UpdateUITeamCount()
     is_value_selection_update = false
     
     
