@@ -916,12 +916,12 @@ local function CheckAnyEggsToHatch(myfarm)
             local OBJECT_UUID = obj:GetAttribute("OBJECT_UUID");
             local READY = obj:GetAttribute("READY"); -- not used, always says ready
 
-            if FSettings.is_hatch_in_batch then
-                 if TimeToHatch > 0 then 
-                    canh = false  
+            if FSettings.is_hatch_in_batch == true then
+                 if TimeToHatch > 0 then
+                    return false
                 end
             else
-                if TimeToHatch ==0 then
+                if TimeToHatch == 0 then
                     return true
                 end
             end
