@@ -2306,7 +2306,7 @@ local function PetTeamsUi()
         Icon = "cat"
     })
     
-    local TeamsTab2 = Window:AddTab({
+    local TeamsTab2 = TeamsTab:AddTab({
         Name = "UI Settings",
         Description = "Customize the UI",
         Icon = "settings"
@@ -2560,7 +2560,7 @@ local function PetTeamsUi()
     })
     
     is_value_selection_update = true
-    MultiDropdownEggReductionTeam:SetValue(team2data)
+    MultiDropdownEggReductionTeam:SetValue(team3data)
     
     
     GroupBoxEggReductionTeam:AddDivider() 
