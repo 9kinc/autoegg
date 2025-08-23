@@ -1872,7 +1872,7 @@ local function SessionLoop()
         task.wait(0.2);
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.2);
-        lbl_stats:SetText("Check Egg Reduction Team for placement...")
+        lbl_stats:SetText("Check Egg Reduction Team for placement..." .. eggs_onfarm)
        
         if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
             lbl_stats:SetText("Placing egg reduction team..")
