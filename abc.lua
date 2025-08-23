@@ -1989,7 +1989,7 @@ local function SessionLoop()
         task.wait(0.3)
 
         --================= CLEANUP AND REPORTING =================
-        recovered_eggs = GetCountEggsOnFarm()
+        --recovered_eggs = GetCountEggsOnFarm()
         task.wait(0.1)
 
         lbl_stats:SetText("Placing new eggs...")
@@ -2001,11 +2001,7 @@ local function SessionLoop()
             lbl_stats:SetText("Out of eggs to place. Stopping farm.")
             --break
         end
-
-        lbl_stats:SetText("Favouriting new pets...")
-        FavoritePets()
-        task.wait(1)
-         
+  
         -- Update and save tracking data
         local hatched_this_cycle = #newlyHatchedNames
         if hatched_this_cycle > 0 then
