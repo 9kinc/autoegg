@@ -1908,48 +1908,9 @@ local function SessionLoop()
 
         print("SessionLoop: Eggs are ready! Starting cycle.")
         lbl_stats:SetText("Eggs ready! Starting cycle.")
-        task.wait(2.2)
+        task.wait(0.2)
         BeforeUpdateEggCountForAllEggs()
-
-        --================= SELL CYCLE =================
-        lbl_stats:SetText("Favouriting Pets...")
-        if FavoritePets() == false then
-            lbl_stats:SetText("Failed to fav. Retrying cycle in 5s...")
-            print("SessionLoop Error: Failed to favorite pets. Retrying cycle.")
-            task.wait(0.7)
-            continue -- Restart the loop from the top instead of stopping
-        end
-        task.wait(2.3)
-
-        -- Place Selling Team (Team 1)
-        if FSettings.disable_team1 == false then
-            if UnEquipAllPets() == false then
-                lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
-                print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
-                task.wait(5)
-                continue -- Restart the loop
-            end
-            lbl_stats:SetText("Placing selling team...")
-            if not EquipPets(FSettings.team1) then
-                lbl_stats:SetText("Team 1 failed. Retrying cycle in 5s...")
-                print("SessionLoop Error: Failed to place selling team. Retrying cycle.")
-                task.wait(5)
-                continue -- Restart the loop
-            end
-        end
-
-        lbl_stats:SetText("Selling pets...")
-        task.wait(2.3) -- Wait for sell buffs to apply
-        UpdatePlayerStats()
-        tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
-        SellAllPetsUnFavorite()
-        task.wait(0.3)
-        lbl_stats:SetText("Selling complete.")
-        AfterUpdateEggCountForAllEggs()
-        task.wait(0.3)
-        got_eggs_back = FindEggLostGainDiff()
-        task.wait(0.3)
-
+ 
         --================= HATCH CYCLE =================
         -- Place Hatching Team (Team 2)
         if FSettings.disable_team2 == false then
@@ -1983,7 +1944,49 @@ local function SessionLoop()
             --break
         end
         lbl_stats:SetText("Hatching Complete.")
-        task.wait(0.1)
+        task.wait(1)
+        
+        
+        
+        
+         --================= SELL CYCLE =================
+        lbl_stats:SetText("Favouriting Pets...")
+        if FavoritePets() == false then
+            lbl_stats:SetText("Failed to fav. Retrying cycle in 5s...")
+            print("SessionLoop Error: Failed to favorite pets. Retrying cycle.")
+            task.wait(0.7)
+            continue -- Restart the loop from the top instead of stopping
+        end
+        task.wait(0.3)
+
+        -- Place Selling Team (Team 1)
+        if FSettings.disable_team1 == false then
+            if UnEquipAllPets() == false then
+                lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
+                print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
+                task.wait(5)
+                continue -- Restart the loop
+            end
+            lbl_stats:SetText("Placing selling team...")
+            if not EquipPets(FSettings.team1) then
+                lbl_stats:SetText("Team 1 failed. Retrying cycle in 5s...")
+                print("SessionLoop Error: Failed to place selling team. Retrying cycle.")
+                task.wait(5)
+                continue -- Restart the loop
+            end
+        end
+
+        lbl_stats:SetText("Selling pets...")
+        task.wait(4.3) -- Wait for sell buffs to apply
+        UpdatePlayerStats()
+        tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
+        SellAllPetsUnFavorite()
+        task.wait(0.3)
+        lbl_stats:SetText("Selling complete.")
+        AfterUpdateEggCountForAllEggs()
+        task.wait(0.3)
+        got_eggs_back = FindEggLostGainDiff()
+        task.wait(0.3)
 
         --================= CLEANUP AND REPORTING =================
         recovered_eggs = GetCountEggsOnFarm()
