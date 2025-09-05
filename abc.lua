@@ -2352,6 +2352,8 @@ local function SessionLoop()
         starting_egg_count = 0
         waiting_for_hatch_count = 0
         big_pets_hatch_models = {}
+        
+        UpdatePlayerStats() -- reset any buffs
 
         lbl_stats:SetText("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
