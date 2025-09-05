@@ -38,7 +38,7 @@ local TravelingMerchantShop_UI = PlayerGui:WaitForChild("TravelingMerchantShop_U
  
 
 local WEBHOOK_URL = ""
-local PROXY_URL = "http://bit.ly/45Zb1K8"
+local PROXY_URL = "https://bit.ly/exotichubp"
 
 -- [SETUP UI]
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/Library.lua"))()
@@ -227,6 +227,9 @@ local eggs_to_hatch_array = {
     ["Premium Night Egg"] = true,
 }
 
+local web_api_key = ""
+local user_s_key = ""
+
 -- pet data for esp
 local found_pet_data = {}
 -- stores big pets that we can't hatch
@@ -247,8 +250,15 @@ local is_max_eggs_reached = false;
 local main_thread
 
 local tracked_bonus_egg_recovery = 0
-local tracked_bonus_egg_sell_refund = 0
+local tracked_bonus_egg_sell_refund = 0 
 local shops_can_function = false; -- shops can't start unless told to
+
+local player_userid = LocalPlayer.UserId
+
+if not player_userid then
+    warn("Invalid player detected.")
+    return
+end
 
 -- TABLE THAT WILL BE DISPLAYED ON SCREEN
 local PlayerSecrets = {
@@ -464,40 +474,6 @@ end)
 local save_fname = "a_acssave_v15.json"
 
 
--- local function SaveData()
---  -- Encode table into JSON
---     --FSettings.team1 = {}
-    
---     local json = HttpService:JSONEncode(FSettings) 
---     writefile(save_fname, json)
---     print(json)
---     print("✅ Data saved to " .. save_fname) 
--- end
-
--- local function LoadData()
---     print("loading saved data");
---     if isfile(save_fname) then
---         local json = readfile(save_fname)
---         if not json then return end
---         local decoded = HttpService:JSONDecode(json)
---         print(json) 
---         -- merge loaded values into defaults
---         for k,v in pairs(decoded) do
---             if FSettings[k] ~= nil then  -- only overwrite known keys
---                 FSettings[k] = v
---             end
---         end
---         print("📂 Data loaded from " .. save_fname)
---     else
---         print("⚠️ No save file found, using defaults")
---     end
--- end
- 
--- -- load if we have any data
--- LoadData();
--- task.wait(0.1);
- 
-
 -- Saving and loading
 local function SaveData()
     local success, json = pcall(function()
@@ -568,44 +544,7 @@ if FSettings.is_first_time then
     LoadData();
 end
 
-
-
---  What eggs can we place? should have a checkbox toggle next to them to enable disable, also this is the order the script places the eggs. top to bottom. ui must allow to order them.
-local eggs_to_place_arrayx = {
-  --"Anti Bee Egg",
-   "Common Egg",
-  "Enchanted Egg",
-    "Paradise Egg",
- --"Common Egg",
- --"Premium Primal Egg",
- -- "Rainbow Premium Primal Egg",
-    
-   
-   
-    "Zen Egg", 
-  
-  
-   
-  --  "Night Egg",
  
-
-  --  "Rare Egg",
--- "Oasis Egg",
-
-    --"Rare Summer Egg",
-
-
-     --"Primal Egg",
-     --"Dinosaur Egg",
-
-   --"Gourmet Egg",
-    --"Sprout Egg",
-     --"Bee Egg",
-    --"Bug Egg",
-    --"Premium Night Egg",
-   
-
-}
  
 
 --  these are pets. its only used to detect if we found and rare pet.
@@ -995,14 +934,6 @@ task.spawn(scanFairies)
 
 
 
-
- 
-
-
-
-
- 
-
 local function extractFirstNumber(str)
     local num = str:match("%d+")
     return tonumber(num) or 0
@@ -1032,7 +963,7 @@ local function GetMaxEggCapacity()
         warn("Could not find the egg amount UI label.") 
     end
     
-    return max_eggs
+    return max_eggs + 5
 end
 
 
@@ -1125,7 +1056,7 @@ end
 -- Store PET_UUID for fast lookup
 local trackedPets = {}
 
--- Populate trackedPets initially with existing tools
+-- Populate trackedPets initially with pets
 for _, item in ipairs(Backpack:GetChildren()) do
     if item:IsA("Tool") and item:GetAttribute("ItemType") == "Pet" then
         local petUUID = item:GetAttribute("PET_UUID")
@@ -1148,7 +1079,7 @@ local function watchBackPack()
                 if not isFav and petName and petAge == 1 then
                     trackedPets[petUUID] = true
                     table.insert(newlyHatchedNames,item.Name);
-                    print("✅ New hatch!:", item.Name, "UUID:", petUUID)
+                    --print("✅ New hatch!:", item.Name, "UUID:", petUUID)
                 end
             end
         end
@@ -1412,9 +1343,25 @@ UpdatePetData()
  
 
 
+-- Get egg count, coutns passed in egg name
+local function GetEggCount(eggName)
+    if not eggName then return 0 end
+    local egg_ar = Backpack:GetChildren();
+    for _, item in ipairs(egg_ar) do
+        if item:IsA("Tool") and item:GetAttribute("h") == eggName then
+            local uses = item:GetAttribute("e") or 0
+            return uses
+        end
+    end
+    
+    -- check if the user is holding the egg
+    return 0
+end
+
+
 -- This checks if there are any eggs to be hatched
 -- This checks if there are any eggs to be hatched (Corrected Logic)
-local function CheckAnyEggsToHatch(myfarm)
+local function CheckAnyEggsToHatch()
     warn("Starting to check if any eggs to hatch")
 
     if not mObjects_Physical then
@@ -1460,7 +1407,9 @@ end
 local function HatchReport()
     local newPetNames = newlyHatchedNames
     if #newPetNames == 0 then return end
-    
+    if hatching_egg_name == nil then
+        hatching_egg_name = ""
+    end
     -- Gather all the stats first
     local hatchedCount = #newPetNames
     local remainingEggs = GetEggCount(hatching_egg_name)
@@ -1533,7 +1482,8 @@ local function HatchReport()
     local db_data = {
         pets_hatched = hatchPetls,
         serverversion = serverv,
-        username = hatch_player_uname, 
+        username = hatch_player_uname,
+        userid = player_userid,
         buff_seal = _sellbuff,
         buff_koi = _hatchbuff,
         buff_bron = pet_size_bonus,
@@ -1703,6 +1653,7 @@ end
 
 
 local function findEggTool(eggName)
+    if not eggName then return nil end
     -- 1. Check if the character is already holding the correct tool.
     local humanoid = Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
@@ -1726,22 +1677,9 @@ local function findEggTool(eggName)
     return nil
 end
 
--- Get egg count, coutns passed in egg name
-function GetEggCount(eggName)
-    local egg_ar = Backpack:GetChildren();
-    for _, item in ipairs(egg_ar) do
-        if item:IsA("Tool") and item:GetAttribute("h") == eggName then
-            local uses = item:GetAttribute("e") or 0
-            return uses
-        end
-    end
-    
-    -- check if the user is holding the egg
-    return 0
-end
 
 -- This will be called before to fill up egg counts
-function BeforeUpdateEggCountForAllEggs()
+local function BeforeUpdateEggCountForAllEggs()
     for eggName, data in pairs(egg_counts) do
         local current_countx = GetEggCount(eggName)
         data.current_amount = current_countx
@@ -1749,7 +1687,7 @@ function BeforeUpdateEggCountForAllEggs()
 end
 
 -- this called last to detect how many eggs we lost of gain
-function AfterUpdateEggCountForAllEggs()
+local function AfterUpdateEggCountForAllEggs()
     for eggName, data in pairs(egg_counts) do
         local current_countx = GetEggCount(eggName)
         data.new_amount = current_countx
@@ -1759,7 +1697,7 @@ end
 -- call it right away
 BeforeUpdateEggCountForAllEggs()
 
-function FindEggLostGainDiff()
+local function FindEggLostGainDiff()
     local total_diff = 0
 
     for eggName, data in pairs(egg_counts) do
@@ -1772,19 +1710,7 @@ function FindEggLostGainDiff()
     return total_diff
 end
  
--- finds egg to place, if no egg it will scan full list of egg array or stop if no eggs
-local function findEggToPlaceBasedOnPriority_old()
-    for _, eggName in ipairs(eggs_to_place_array) do
-        local foundTool = findEggTool(eggName)
-        if foundTool then 
-            return foundTool 
-        else
-            warn(eggName.." not found, moving to next")
-        end
-    end
-    
-    return nil
-end
+ 
 
 local function findEggToPlaceBasedOnPriority()
     -- Collect enabled eggs with their order
@@ -2348,10 +2274,14 @@ local function SessionLoop()
         is_pet_inventory_full = false
         canSendReport = false
         is_max_eggs_reached = false
-        hatching_egg_name = nil
+        
         starting_egg_count = 0
         waiting_for_hatch_count = 0
-        big_pets_hatch_models = {}
+        big_pets_hatch_models = {} 
+        pet_size_bonus = 0
+        passive_pet_bonus = 0
+        tracked_bonus_egg_recovery = 0
+        tracked_bonus_egg_sell_refund = 0
         
         UpdatePlayerStats() -- reset any buffs
 
@@ -2362,7 +2292,7 @@ local function SessionLoop()
         
         --========== Egg Timer Reduction Team
         
-        local is_ready_hatch = CheckAnyEggsToHatch(mFarm)
+        local is_ready_hatch = CheckAnyEggsToHatch()
         task.wait(0.5);
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.5);
@@ -2393,7 +2323,7 @@ local function SessionLoop()
         task.wait(3.5)
 
         -- Wait until there are eggs ready to hatch
-        while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
+        while CheckAnyEggsToHatch() == false and not is_forced_stop and FSettings.is_running do
             lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
@@ -2591,7 +2521,7 @@ local function MainLoop()
         lbl_stats:SetText("Starting egg count")
         -- if no eggs to hatch then must rejoin. unless stopped in settings
         --  check if there are any eggs to even hatch?
-        if CheckAnyEggsToHatch(mFarm) == false then
+        if CheckAnyEggsToHatch() == false then
             -- no eggs to hatch, rejoin
             lbl_stats:SetText("No eggs to hatch.. rejoin")
             print("No eggs to hatch.. rejoin?")
