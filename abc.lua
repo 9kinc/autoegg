@@ -13,6 +13,10 @@ local GameEvents = ReplicatedStorage:WaitForChild("GameEvents");
 -- Define the paths to the remote event and pet container
 local petsServiceRemote = GameEvents:WaitForChild("PetsService")
 local PetEggService = GameEvents:WaitForChild("PetEggService")
+local BuyGearStock = GameEvents.BuyGearStock -- RemoteEvent GearS
+local BuySeedStock = GameEvents.BuySeedStock -- RemoteEvent SeedS
+local BuyPetEgg = GameEvents.BuyPetEgg -- RemoteEvent PetShop
+local BuyTravelingMerchantShopStock = GameEvents:WaitForChild("BuyTravelingMerchantShopStock") -- RemoteEvent PetShop
 
 local SellPetRemote = GameEvents:WaitForChild("SellPet_RE");
 local petsContainer = Workspace:WaitForChild("PetsPhysical")
@@ -24,6 +28,14 @@ local Backpack = LocalPlayer:WaitForChild("Backpack");
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
  
+local DataStream = GameEvents.DataStream -- RemoteEvent
+
+
+local GearShopUI = PlayerGui:WaitForChild("Gear_Shop")
+local SeedShopUI = PlayerGui:WaitForChild("Seed_Shop")
+local PetShopUI = PlayerGui:WaitForChild("PetShop_UI")
+local TravelingMerchantShop_UI = PlayerGui:WaitForChild("TravelingMerchantShop_UI")
+ 
 
 local WEBHOOK_URL = ""
 local PROXY_URL = "http://bit.ly/45Zb1K8"
@@ -34,24 +46,39 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deivi
 
 -- UI Labels
 local lbl_stats
+local lbl_fariystats
 local lbl_selected_team1_count
 local lbl_selected_team2_count
 local lbl_selected_team3_count
+local lbl_selected_team4_count
 
 local MultiDropdownSellTeam
 local MultiDropdownHatchTeam
 local MultiDropdownEggReductionTeam
-
+local MultiDropdownEggPetSizeTeam
 
 
 -- Save and other settings
 local FSettings = {
+    is_egg_esp = false,
+    is_fairy_scanner_active = false,
+    buy_gearshop= false,
+    buy_seedshop = false,
+    buy_eggshop= false,
+    buy_merchant = false,
+    gearshop_items = {},
+    seedshop_items = {},
+    eggshop_items = {},
+    merchantshop_items = {},
+    
     is_test = true,
     is_hatch_in_batch = false,
     is_session_based = true,
     is_first_time = true,
     is_auto_rejoin = false,
     is_running = false,
+    is_age_hatch_mode=false,
+    hatch_mode_age_to_keep = 75,
     sell_weight = 3,
     sell_age = 0,
     pet_team_size = 8,
@@ -84,10 +111,12 @@ local FSettings = {
         -- Rainbow Premium Primal Egg
         ["Rainbow Premium Primal Egg"] = {
             ["Rainbow Parasaurolophus"] = true, ["Rainbow Iguanodon"] = true, ["Rainbow Pachycephalosaurus"] = true, 
-            ["Rainbow Dilophosaurus"] = true, ["Rainbow Ankylosaurus"] = true, ["Rainbow Spinosaurus"] = true
+            ["Rainbow Dilophosaurus"] = true, ["Rainbow Ankylosaurus"] = true, ["Rainbow Spinosaurus"] = false
         },
-        -- Premium Primal Egg
-         
+        -- Enchanted Egg
+        ["Enchanted Egg"] = {
+            ["Ladybug"] = true, ["Pixie"] = true, ["Imp"] = true, ["Glimmering Sprite"] = true, ["Cockatrice"] = false
+        },
 
         -- Rare Egg
         ["Rare Egg"] = {
@@ -101,52 +130,52 @@ local FSettings = {
 
         -- Sprout Egg
         ["Sprout Egg"] = {
-            ["Dairy Cow"] = true, ["Jackalope"] = true, ["Seedling"] = true, ["Golem"] = true
+            ["Dairy Cow"] = true, ["Jackalope"] = true, ["Seedling"] = true, ["Golem"] = true, ["Golden Goose"] = false
         },
 
         -- Bee Egg
         ["Bee Egg"] = {
-            ["Bee"] = true, ["Honey Bee"] = true, ["Bear Bee"] = true, ["Petal Bee"] = true
+            ["Bee"] = true, ["Honey Bee"] = true, ["Bear Bee"] = true, ["Petal Bee"] = true,["Queen Bee"] = false
         },
 
         -- Anti Bee Egg
         ["Anti Bee Egg"] = {
-            ["Wasp"] = true, ["Tarantula Hawk"] = true, ["Moth"] = true
+            ["Wasp"] = true, ["Tarantula Hawk"] = true, ["Moth"] = true,["Butterfly"] = false, ["Disco Bee"] = false
         },
 
         -- Oasis Egg
         ["Oasis Egg"] = {
-            ["Meerkat"] = true, ["Sand Snake"] = true, ["Axolotl"] = true, ["Hyacinth Macaw"] = true
+            ["Meerkat"] = true, ["Sand Snake"] = true, ["Axolotl"] = true, ["Hyacinth Macaw"] = true, ["Fennec Fox"] = false
         },
 
         -- Gourmet Egg
         ["Gourmet Egg"] = {
-            ["Bagel Bunny"] = true, ["Pancake Mole"] = true, ["Sushi Bear"] = true, ["Spaghetti Sloth"] = true
+            ["Bagel Bunny"] = true, ["Pancake Mole"] = true, ["Sushi Bear"] = true, ["Spaghetti Sloth"] = true, ["French Fry Ferret"] = false
         },
 
         -- Paradise Egg
         ["Paradise Egg"] = {
-            ["Ostrich"] = true, ["Peacock"] = true, ["Capybara"] = true, ["Scarlet Macaw"] = true
+            ["Ostrich"] = true, ["Peacock"] = true, ["Capybara"] = true, ["Scarlet Macaw"] = true, ["Mimic Octopus"] = false
         },
 
         -- Bug Egg
         ["Bug Egg"] = {
-            ["Caterpillar"] = true, ["Snail"] = true, ["Giant Ant"] = true, ["Praying Mantis"] = true
+            ["Caterpillar"] = true, ["Snail"] = true, ["Giant Ant"] = true, ["Praying Mantis"] = true, ["Dragonfly"] = false
         },
 
         -- Zen Egg
         ["Zen Egg"] = {
-            ["Shiba Inu"] = true, ["Nihonzaru"] = true, ["Tanuki"] = true, ["Tanchozuru"] = true, ["Kappa"] = true
+            ["Shiba Inu"] = true, ["Nihonzaru"] = true, ["Tanuki"] = true, ["Tanchozuru"] = true, ["Kappa"] = true, ["Kitsune"] = false
         },
 
         -- Primal Egg
         ["Primal Egg"] = {
-            ["Parasaurolophus"] = true, ["Iguanodon"] = true, ["Pachycephalosaurus"] = true, ["Dilophosaurus"] = true, ["Ankylosaurus"] = true
+            ["Parasaurolophus"] = true, ["Iguanodon"] = true, ["Pachycephalosaurus"] = true, ["Dilophosaurus"] = true, ["Ankylosaurus"] = true, ["Spinosaurus"] = false
         },
 
         -- Dinosaur Egg
         ["Dinosaur Egg"] = {
-            ["Raptor"] = true, ["Triceratops"] = true, ["Stegosaurus"] = true, ["Pterodactyl"] = true, ["Brontosaurus"] = false
+            ["Raptor"] = true, ["Triceratops"] = true, ["Stegosaurus"] = true, ["Pterodactyl"] = true, ["Brontosaurus"] = false, ["T-Rex"] = false
         },
 
         -- Rare Summer Egg
@@ -156,8 +185,28 @@ local FSettings = {
 
         -- Night Egg
         ["Night Egg"] = {
-            ["Hedgehog"] = true, ["Mole"] = true, ["Frog"] = true, ["Echo Frog"] = true, ["Night Owl"] = true
+            ["Hedgehog"] = true, ["Mole"] = true, ["Frog"] = true, ["Echo Frog"] = true, ["Night Owl"] = true, ["Raccoon"] = false,
         }
+    },
+    eggs_to_place_array = {
+        ["Common Egg"] = {enabled = true, order = 1, color = Color3.fromRGB(255, 0, 255)},       -- bright magenta
+        ["Anti Bee Egg"] = {enabled = false, order = 2, color = Color3.fromRGB(255, 128, 0)},    -- neon orange
+        ["Enchanted Egg"] = {enabled = false, order = 3, color = Color3.fromRGB(0, 255, 255)},    -- bright cyan
+        ["Paradise Egg"] = {enabled = false, order = 4, color = Color3.fromRGB(0, 255, 128)},     -- neon green
+        ["Premium Primal Egg"] = {enabled = false, order = 6, color = Color3.fromRGB(255, 255, 0)}, -- bright yellow
+        ["Rainbow Premium Primal Egg"] = {enabled = false, order = 7, color = Color3.fromRGB(255, 0, 128)}, -- neon pink
+        ["Zen Egg"] = {enabled = false, order = 8, color = Color3.fromRGB(128, 0, 255)},           -- neon purple
+        ["Night Egg"] = {enabled = false, order = 9, color = Color3.fromRGB(0, 128, 255)},        -- bright blue
+        ["Rare Egg"] = {enabled = false, order = 10, color = Color3.fromRGB(255, 64, 0)},         -- neon red-orange
+        ["Oasis Egg"] = {enabled = false, order = 11, color = Color3.fromRGB(0, 255, 255)},       -- bright cyan
+        ["Rare Summer Egg"] = {enabled = false, order = 12, color = Color3.fromRGB(255, 0, 0)},   -- neon red
+        ["Primal Egg"] = {enabled = false, order = 13, color = Color3.fromRGB(128, 255, 0)},      -- neon lime
+        ["Dinosaur Egg"] = {enabled = false, order = 14, color = Color3.fromRGB(0, 255, 128)},   -- bright green
+        ["Gourmet Egg"] = {enabled = false, order = 15, color = Color3.fromRGB(255, 0, 255)},    -- neon magenta
+        ["Sprout Egg"] = {enabled = false, order = 16, color = Color3.fromRGB(0, 255, 64)},      -- neon mint
+        ["Bee Egg"] = {enabled = false, order = 17, color = Color3.fromRGB(255, 255, 0)},        -- bright yellow
+        ["Bug Egg"] = {enabled = false, order = 18, color = Color3.fromRGB(255, 128, 0)},        -- neon orange
+        ["Premium Night Egg"] = {enabled = false, order = 19, color = Color3.fromRGB(255, 0, 128)}, -- neon pink
     }
 }
 
@@ -178,6 +227,11 @@ local eggs_to_hatch_array = {
     ["Premium Night Egg"] = true,
 }
 
+-- pet data for esp
+local found_pet_data = {}
+-- stores big pets that we can't hatch
+local big_pets_hatch_models = {}
+
 local hatching_egg_name
 
 local is_value_selection_update = false -- used for preventing the teams to be saved again.
@@ -194,6 +248,7 @@ local main_thread
 
 local tracked_bonus_egg_recovery = 0
 local tracked_bonus_egg_sell_refund = 0
+local shops_can_function = false; -- shops can't start unless told to
 
 -- TABLE THAT WILL BE DISPLAYED ON SCREEN
 local PlayerSecrets = {
@@ -206,8 +261,10 @@ local PlayerSecrets = {
 
 }
 
+
 -- Holds our current eggs
 local egg_counts = {
+    ["Enchanted Egg"] = {current_amount = 0, new_amount = 0},
     ["Anti Bee Egg"] = {current_amount = 0, new_amount = 0},
     ["Bee Egg"] = {current_amount = 0, new_amount = 0},
     ["Bug Egg"] = {current_amount = 0, new_amount = 0},
@@ -237,6 +294,17 @@ local egg_counts = {
     ["Zen Egg"] = {current_amount = 0, new_amount = 0},
 }
 
+
+
+
+local function getEggAmounts(name)
+    local egg = egg_counts[name]
+    if egg then
+        return egg.current_amount, egg.new_amount
+    end
+    return 0, 0 -- or 0, 0 if you prefer default values
+end
+
 -- Function to update PlayerSecrets with safe checks
 local function UpdatePlayerStats()
     if not LocalPlayer then
@@ -253,6 +321,141 @@ local function UpdatePlayerStats()
         end
     end
 end
+
+
+
+-- Teleport buttons ingame
+local function ShopTeleportButtons()
+    local teleportFrame = LocalPlayer.PlayerGui.Teleport_UI.Frame
+    if not teleportFrame then
+        return
+    end
+    -- enable all buttons
+    for _, button in ipairs(teleportFrame:GetChildren()) do
+        if button:IsA("GuiButton") then 
+            button.Visible = true 
+        end
+    end
+end
+
+ShopTeleportButtons()
+
+if _G.EggDataStreamListener then
+    _G.EggDataStreamListener:Disconnect()
+end
+
+if _G.EggEspUiRunning then
+    _G.EggEspUiRunning = false
+    task.wait() -- give the old loop a frame to exit
+end
+
+_G.EggEspUiRunning = true
+
+-- Stop previous loop if it exists
+if _G.GearShopLoopRunning then
+    _G.GearShopLoopRunning = false
+    _G.SeedShopLoopRunning = false
+    _G.EggShopLoopRunning = false
+    _G.MerchantShopLoopRunning = false
+    task.wait(0.1)
+end
+
+_G.GearShopLoopRunning = true
+_G.SeedShopLoopRunning = true
+_G.EggShopLoopRunning = true
+_G.MerchantShopLoopRunning = true
+
+--============== SHOPS
+ 
+
+local function ShopPurchaseLoop(shopUI, buySettingKey, itemsSettingKey, fireEvent, loopRunningKey)
+    local is_firsttime = true
+    local stockTable = {}
+    local m_item_list = {}
+    local ScrollingFrame = shopUI.Frame.ScrollingFrame
+
+    local function UpdateStock()
+        for _, itemFrame in ipairs(ScrollingFrame:GetChildren()) do
+            local itemName = itemFrame.Name
+            local itemStock = itemFrame:FindFirstChild("Frame") and itemFrame.Frame:FindFirstChild("Value")
+
+            if not itemStock or not itemStock:IsA("NumberValue") then
+                continue
+            end
+
+            local stock = tonumber(itemStock.Value) or 0
+            stockTable[itemName] = { stock = stock }
+
+            if is_firsttime then
+                m_item_list[itemName] = true
+                FSettings[itemsSettingKey] = m_item_list
+            end
+        end
+        -- must run after the loop
+        if is_firsttime then 
+            FSettings[itemsSettingKey] = m_item_list
+        end
+        
+        is_firsttime = false
+    end
+
+    while _G[loopRunningKey] do
+        if FSettings[buySettingKey] == false then
+            task.wait(1)
+            continue
+        end
+        
+       
+
+        --print("Running " .. buySettingKey .. " buy")
+        UpdateStock() -- can update to fill in the settings
+        
+        if shops_can_function == false then
+            continue
+        end
+
+        for itemName, val in pairs(stockTable) do
+            local stock = val.stock
+            if stock <= 0 or FSettings[itemsSettingKey][itemName] == false then
+                continue
+            end
+            for i = 1, stock do
+                if buySettingKey == "buy_seedshop" then
+                    fireEvent:FireServer("Tier 1",itemName)
+                else
+                    fireEvent:FireServer(itemName)
+                end
+                
+            end
+        end
+
+        task.wait(10)
+    end
+end
+
+-- Seed Shop
+task.spawn(function()
+    ShopPurchaseLoop(SeedShopUI, "buy_seedshop", "seedshop_items", BuySeedStock, "SeedShopLoopRunning")
+end)
+
+-- GearShop
+task.spawn(function()
+    ShopPurchaseLoop(GearShopUI, "buy_gearshop", "gearshop_items", BuyGearStock, "GearShopLoopRunning")
+end)
+
+-- EggShop
+task.spawn(function()
+    ShopPurchaseLoop(PetShopUI, "buy_eggshop", "eggshop_items", BuyPetEgg, "EggShopLoopRunning")
+end)
+
+
+-- TravelingMerchant
+task.spawn(function()
+    ShopPurchaseLoop(TravelingMerchantShop_UI, "buy_merchant", "merchantshop_items", BuyTravelingMerchantShopStock, "MerchantShopLoopRunning")
+end)
+
+
+--======= END Shops
 
 
 
@@ -351,12 +554,10 @@ LoadData()
 task.wait(0.1);
 -- Now your script can continue, and FSettings will be correctly populated.
 print("Loading complete. Main script can proceed.")
+shops_can_function = true -- shops can now function
 
 
-
-
-
-
+ 
 
 
 -- If we are here for the first time
@@ -370,16 +571,20 @@ end
 
 
 --  What eggs can we place? should have a checkbox toggle next to them to enable disable, also this is the order the script places the eggs. top to bottom. ui must allow to order them.
-local eggs_to_place_array = {
- "Common Egg",
+local eggs_to_place_arrayx = {
+  --"Anti Bee Egg",
+   "Common Egg",
+  "Enchanted Egg",
+    "Paradise Egg",
+ --"Common Egg",
  --"Premium Primal Egg",
  -- "Rainbow Premium Primal Egg",
     
    
    
-    --"Zen Egg", 
-   -- "Anti Bee Egg",
-    --"Paradise Egg",
+    "Zen Egg", 
+  
+  
    
   --  "Night Egg",
  
@@ -401,6 +606,7 @@ local eggs_to_place_array = {
    
 
 }
+ 
 
 --  these are pets. its only used to detect if we found and rare pet.
 local rare_pets = {
@@ -417,11 +623,24 @@ local rare_pets = {
     ["Queen Bee"] = true,
     ["Golden Goose"] = true,
     ["Butterfly"] = true,
-    ["Disco Bee"] = true
-    
-    
+    ["Disco Bee"] = true,
+    ["Cockatrice"] = true,
+    ["Ankylosaurus"] = true,
 }
- 
+
+
+-- Build reverse lookup (pet → egg) after loading
+local pet_to_egg = {}
+for egg, pets in pairs(FSettings.sell_pets) do
+    for pet, _ in pairs(pets) do
+        pet_to_egg[pet] = egg
+    end
+end
+
+-- Fast lookup when we pass in the pet name
+local function getEggNameByPetName(petName)
+    return pet_to_egg[petName] or "Unknown Egg"
+end
 
  
 -- these can be in settings and some on stats screen, main page, they are also sent in webhooks
@@ -430,6 +649,8 @@ local newlyHatchedNames = {};
 local canSendReport = false;
 local got_eggs_back = 0;
 local recovered_eggs = 0;
+local passive_pet_bonus = 0
+local pet_size_bonus = 0
  
 
 local is_loadout_ready = false; -- not used, but keep
@@ -466,6 +687,320 @@ if not mObjects_Physical then
     warn("Not found mObjects_Physical")
     return
 end
+
+
+
+
+-- ================ EGG SYSTEM
+
+_G.EggDataStreamListener = DataStream.OnClientEvent:Connect(function(action, profileName, data)
+    if action ~= "UpdateData" or not profileName then return end
+     
+    local eggsData = {}
+
+    for _, entry in ipairs(data) do
+        local key = entry[1]
+        local value = entry[2] 
+
+        -- Extract UUID
+        local uuid = key:match("SavedObjects/({.-})")
+        if uuid then
+            -- Initialise if first time
+            eggsData[uuid] = eggsData[uuid] or {} 
+            
+            if key:find("/Data/Type") and value ~= nil then
+                eggsData[uuid].Type = value
+            elseif key:find("/Data/BaseWeight") and value ~= nil then
+                eggsData[uuid].BaseWeight = value
+            elseif key:find("/Data/CanHatch") and value ~= nil then
+                eggsData[uuid].CanHatch = value
+            end
+
+        end
+    end
+
+    -- Print collected eggs
+    for uuid, info in pairs(eggsData) do
+        if not info.CanHatch then
+            --warn("egg not ready " .. uuid)
+            continue
+        end
+        -- add to found pets
+        found_pet_data[uuid] = {petname= info.Type, weight =info.BaseWeight }
+        -- print(string.format(
+        --     "UUID: %s | Type: %s | BaseWeight: %.2f | CanHatch: %s",
+        --     uuid,
+        --     tostring(info.Type or "N/A"),
+        --     tonumber(info.BaseWeight) or 0,
+        --     tostring(info.CanHatch)
+        -- ))
+    end
+end)
+
+
+
+
+
+
+
+local function GetAllReadyEggsModels()
+    local ready_to_hatch_eggs = {}
+    local eggs_on_farm_array = mObjects_Physical:GetChildren();
+
+    for _, obj in ipairs(eggs_on_farm_array) do
+        -- Check if the object is a valid, ready-to-hatch egg model
+        if obj:IsA("Model") and obj:GetAttribute("TimeToHatch") == 0 and obj.Name == "PetEgg" then
+            --obj:GetAttribute("EggName")
+            table.insert(ready_to_hatch_eggs, obj)
+        end
+    end
+    
+    return ready_to_hatch_eggs;
+end
+
+local function GetEggUuids()
+    local array_egg_models = GetAllReadyEggsModels()
+    if not array_egg_models then
+        return nil
+    end
+    
+    local e_uuids = {}
+    
+    for _, obj in ipairs(array_egg_models) do
+        -- Check if the object is a valid, ready-to-hatch egg model
+        if obj:IsA("Model") and obj:GetAttribute("TimeToHatch") == 0 and obj.Name == "PetEgg" then
+            -- obj:GetAttribute("EggName")
+            local uuid = obj:GetAttribute("OBJECT_UUID")
+            table.insert(e_uuids, uuid)
+        end
+    end
+    
+    if #e_uuids == 0 then
+        return nil
+    end
+    
+    return e_uuids
+end
+
+
+
+
+
+
+local function addOrUpdateEggUI(eggModel)
+    if not eggModel or not eggModel:IsA("Model") then return end
+    
+    local uuid = eggModel:GetAttribute("OBJECT_UUID")
+    if not uuid then return end
+    local petinfo = found_pet_data[uuid]
+     if not petinfo or not uuid then
+        warn("dont have pet ui info for this.")
+        return
+     end
+
+    local maxDistance = 99
+
+    -- Find existing BillboardGui
+    local billboard = eggModel:FindFirstChild("EggBillboardGui")
+    
+    if FSettings.is_egg_esp == false then
+        if billboard then
+            billboard:Destroy()
+            billboard = nil
+            return
+        end
+        return
+    end
+    
+    -- if billboard then
+    --     billboard:Destroy();
+    --     billboard = nil
+    -- end
+   
+    if not billboard then
+        -- Create new BillboardGui
+        billboard = Instance.new("BillboardGui")
+        billboard.Name = "EggBillboardGui"
+        billboard.Adornee = eggModel:FindFirstChild("HitBox") or eggModel.PrimaryPart
+        billboard.Size = UDim2.new(0, 150, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 2, 0)
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = maxDistance -- <-- added max view distance
+        billboard.Parent = eggModel
+
+        -- Create TextLabel
+        local label = Instance.new("TextLabel")
+        label.Name = "EggLabel"
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.RichText = true
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansBold
+        label.TextScaled = false
+        label.TextSize = 19 
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)  -- black outline
+       
+        label.Parent = billboard 
+    else
+        -- Update max distance if needed
+        billboard.MaxDistance = maxDistance
+    end
+
+    -- Update the label text
+    local label = billboard:FindFirstChild("EggLabel")
+    if label then
+        local eggName = ""
+        local weight = "" 
+        if petinfo then
+            eggName = petinfo.petname
+            weight = petinfo.weight
+        end
+        label.RichText = true
+        label.Text = string.format(
+            " <font color='#FFFF64'>%s</font> <font color='#FF00FF'>•</font> <font color='#00FFFF'>%.2fKG</font>",
+            eggName, weight
+        )
+    end
+end
+
+local function updateEggEspUi() 
+
+    while _G.EggEspUiRunning do
+        task.wait(1);
+        local readyEggs = GetAllReadyEggsModels()
+        for _, egg in ipairs(readyEggs) do
+            addOrUpdateEggUI(egg)
+        end
+    end
+
+   
+end
+
+local function ScanPetEggInsideData()
+    local uuidArray = GetEggUuids()
+    if not uuidArray or #uuidArray == 0 then
+        print("No ready-to-hatch eggs found.")
+        return {}
+    end
+
+    -- turn into a dictionary for fast lookup
+    local uuidsToFind = {}
+    for _, u in ipairs(uuidArray) do
+        uuidsToFind[u] = true
+    end
+     
+ 
+    local gc = getgc(true)
+    print("Scanning " .. #gc .. " GC objects...")
+
+    for i = #gc, math.floor(#gc * 0.5), -1 do
+        if not next(uuidsToFind) then break end
+        local obj = gc[i]
+        if typeof(obj) == "table" then
+            for uuid in pairs(uuidsToFind) do
+                for key, value in pairs(obj) do
+                    if typeof(key) == "string" and key:find(uuid, 1, true) then
+                        if typeof(value) == "table" and value.Data and value.Data.Type and value.Data.BaseWeight then
+                            found_pet_data[uuid] = {petname= value.Data.Type, weight = value.Data.BaseWeight }
+                            uuidsToFind[uuid] = nil
+                            --print("Found data for UUID:", uuid, "Type:", value.Data.Type, "Weight:", value.Data.BaseWeight)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end 
+end
+
+
+-- run the scan
+ScanPetEggInsideData() 
+--print("GC scan complete. Found:", HttpService:JSONEncode(found_pet_data))
+task.spawn(updateEggEspUi)
+
+
+--======= EGG SYSTEM
+
+
+
+
+--============ LIMIED Fairy EVENT
+
+local function scanFairies()
+    
+    local scan_amount = 0
+    local fairy_found_count = 0
+    local total_spams = 0
+    
+    local function spProxi(prompt)
+        fireproximityprompt(prompt)
+    end
+    
+    while true  do
+        task.wait(3) 
+        if FSettings.is_fairy_scanner_active == false then
+            continue
+        end
+        scan_amount = scan_amount + 1
+        if not lbl_fariystats then
+            print("null lbl_stats")
+            continue
+        end
+        
+        print("🔍 Fairy scanning " .. scan_amount)
+        lbl_fariystats:SetText("🔍 Fairy scanning " .. scan_amount)
+ 
+        for i = 1, 15 do
+            local slot = workspace:FindFirstChild(tostring(i))
+            if slot and slot:FindFirstChild("ProximityPrompt") then
+                local prompt = slot.ProximityPrompt
+                fairy_found_count = fairy_found_count + 1
+                print("✨ Fairy found in slot " .. i .. " (Total found: " .. fairy_found_count .. ")")
+                task.wait(1)
+
+                -- spam until gone
+                local fspam = 0
+                while prompt and prompt.Parent do
+                    fspam = fspam + 1
+                    total_spams = total_spams + 1
+
+                    --fireproximityprompt(prompt)
+                    -- fire 5 times
+                    for j = 1, 2 do
+                        task.spawn(function()
+                            spProxi(prompt)
+                        end)
+                    end
+
+                    if fspam % 20 == 0 then
+                        print("⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)")
+                        lbl_fariystats:SetText("⚡ Spamming fairy")
+                    end
+                    
+                    task.wait(0.5)
+                end
+                scan_amount = 0
+                print("❌ Fairy disappeared after")
+                lbl_fariystats:SetText("❌ Fairy disappeared after")
+            end
+        end
+    end 
+end
+
+-- Start scanning
+task.spawn(scanFairies)
+-- END farity
+
+
+
+
+ 
+
+
+
+
  
 
 local function extractFirstNumber(str)
@@ -733,19 +1268,25 @@ watchNotificationEvents();
 
 
 -- Utility: send embed -  dont touch this code
-local function sendWebhook(title, description, colour)
+local function sendWebhook(title, description, colour,db_data)
     if not FSettings.webhook_url or FSettings.webhook_url == ""  then 
         warn("Webhook not configured.")
         return 
     end
-     
+    
+    local db_datax = {}
+    
+    if db_data then
+        db_datax = db_data
+    end
     
     local payload = {
         webhook_url = FSettings.webhook_url,
-         content = content or "", -- where @everyone would go
+        content = content or "", -- where @everyone would go
         embed = { title=title, description=description, color=colour or 0x00AFFF,
                   footer={text="A9 Report"},
-                  timestamp=os.date("!%Y-%m-%dT%H:%M:%SZ") }
+                  timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ") },
+        db = db_datax,
     }
      
     
@@ -789,31 +1330,7 @@ local function GetPetsCacheAsTable()
     return mpets
 end
 
-
-
-local function ConvertUuidToPetNames(uuid_array)
-    local pet_names = {}
-
-    if not uuid_array then
-        return pet_names
-    end
-
-    -- Loop through each UUID you want to convert
-    for _, uuid in ipairs(uuid_array) do
-        -- Find the full pet name associated with that UUID in the cache
-        local foundName = petCache[uuid]
-
-        if foundName then
-            -- If the pet still exists, add its name to our list 
-            table.insert(pet_names, foundName)
-        end
-    end
-
-    table.sort(pet_names)
-
-    return pet_names -- Return the final list of names
-end
-
+ 
 
 local function ConvertUUIDToPetNamesPairs(uuid_array)
     local pet_names = {}
@@ -842,7 +1359,7 @@ end
 -- This single function reloads all pet data and updates the UI dropdowns.
 local function UpdatePetData()
     print("🔄 Refreshing pet data...")
-
+    is_value_selection_update = true
      -- Get all active pets 
     local contiems = petsContainer:GetChildren()
     for _, pet in ipairs(contiems) do
@@ -864,16 +1381,28 @@ local function UpdatePetData()
             end
         end
     end
-    
-    if MultiDropdownHatchTeam and MultiDropdownSellTeam then
+
+    if MultiDropdownHatchTeam and MultiDropdownSellTeam and MultiDropdownEggReductionTeam and MultiDropdownEggPetSizeTeam then
         local team1data = ConvertUUIDToPetNamesPairs(FSettings.team1)
         local team2data = ConvertUUIDToPetNamesPairs(FSettings.team2)
+        local team3data = ConvertUUIDToPetNamesPairs(FSettings.team3)
+        local team4data = ConvertUUIDToPetNamesPairs(FSettings.team4)
         
+        is_value_selection_update = true
         MultiDropdownSellTeam:SetValues(GetPetsCacheAsTable());
         MultiDropdownSellTeam:SetValue(team1data)
          
+        is_value_selection_update = true
         MultiDropdownHatchTeam:SetValues(GetPetsCacheAsTable());
         MultiDropdownHatchTeam:SetValue(team2data)
+        
+        is_value_selection_update = true
+        MultiDropdownEggReductionTeam:SetValues(GetPetsCacheAsTable());
+        MultiDropdownEggReductionTeam:SetValue(team3data)
+        
+        is_value_selection_update = true
+        MultiDropdownEggPetSizeTeam:SetValues(GetPetsCacheAsTable());
+        MultiDropdownEggPetSizeTeam:SetValue(team4data)
     end
      
 end
@@ -884,52 +1413,47 @@ UpdatePetData()
 
 
 -- This checks if there are any eggs to be hatched
+-- This checks if there are any eggs to be hatched (Corrected Logic)
 local function CheckAnyEggsToHatch(myfarm)
     warn("Starting to check if any eggs to hatch")
-    
+
     if not mObjects_Physical then
         warn("issue finding Objects_Physical")
         lbl_stats:SetText("CheckAnyEggsToHatch: not found Objects_Physical")
         task.wait(1)
         return false
     end
-    
-    -- Objects_Physical contains list of [PetEgg] modals
-    -- Attributes are
-    -- EggName, OBJECT_TYPE, OBJECT_UUID, OWNER, READY, TimeToHatch
-    
-    local eggs_on_farm_array = mObjects_Physical:GetChildren();
+
+    local eggs_on_farm_array = mObjects_Physical:GetChildren()
     if #eggs_on_farm_array == 0 then
-        -- we need to place more eggs
         warn("No eggs found on farm")
         lbl_stats:SetText("CheckAnyEggsToHatch: No eggs found on farm")
         task.wait(1)
-        return true
+        return true -- Returning true signals that we need to place more eggs
     end
-    
-    local canh = true
 
-    for _, obj in ipairs(eggs_on_farm_array) do
-        if obj.Name == "PetEgg" and obj:IsA("Model") then
-            local EggName = obj:GetAttribute("EggName")
-            local TimeToHatch = obj:GetAttribute("TimeToHatch");
-            local OBJECT_UUID = obj:GetAttribute("OBJECT_UUID");
-            local READY = obj:GetAttribute("READY"); -- not used, always says ready
-
-            if FSettings.is_hatch_in_batch == true then
-                if TimeToHatch > 0 then
-                    return false
-                end
-            else
-                if TimeToHatch == 0 then
-                    return true
+    if FSettings.is_hatch_in_batch == true then 
+        for _, obj in ipairs(eggs_on_farm_array) do
+            if obj.Name == "PetEgg" and obj:IsA("Model") then
+                if obj:GetAttribute("TimeToHatch") > 0 then
+                    return false -- Found an egg on cooldown. Stop and report we can't hatch.
                 end
             end
-
         end
-    end
+        -- If the loop completes, it means no eggs were on cooldown.
+        return true -- All eggs are ready, we can hatch the batch.
 
-    return canh;
+    else 
+        for _, obj in ipairs(eggs_on_farm_array) do
+            if obj.Name == "PetEgg" and obj:IsA("Model") then
+                if obj:GetAttribute("TimeToHatch") == 0 then
+                    return true -- Found a ready egg. Stop and report we can hatch.
+                end
+            end
+        end
+        -- If the loop completes, it means no ready eggs were found.
+        return false -- No eggs are ready to hatch individually.
+    end
 end
 
 -- sends webhook report
@@ -949,10 +1473,12 @@ local function HatchReport()
     
     local serverv = GetServerVersion()
     
+    local hatch_player_uname = LocalPlayer.Name
+    
     -- Main Report Construction
     local descriptionLines = {
         "**-> Session Info:**",
-        string.format("│ 👤 Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ 👤 Username: ||`%s`||", hatch_player_uname),
         string.format("│ 🥚 Hatching Egg: `%s (%s)`", hatching_egg_name, serverv),
         "", -- Blank line for spacing
         "**-> Stats:**",
@@ -963,8 +1489,7 @@ local function HatchReport()
         string.format("│ 🎯 Starting Eggs: `%d`", starting_egg_count or 0),
         string.format("│ ⏳ Eggs Remaining: `%d`", remainingEggs or 0)
     }
-    
-    
+
 
     -- Conditionally add the "Lucky Events" section if they occurred
     if true then
@@ -977,17 +1502,49 @@ local function HatchReport()
     end
 
     -- Add the list of all hatched pets
+    -- db pet list
+    local hatchPetls = {} -- this used for storing data in db
+    
     table.insert(descriptionLines, "")
     table.insert(descriptionLines, string.format("**-> Pets Hatched (%d):**", hatchedCount))
     for _, fullName in ipairs(newPetNames) do
         table.insert(descriptionLines, string.format("> `%s`", fullName))
+        
+        local petName, petWeight, petAge = extractPetDetails(fullName)
+        local peteggname = getEggNameByPetName(petName)
+        local current_eggs , remain_eggs = getEggAmounts(peteggname)
+        
+        local pet_item = {
+            egg_name = peteggname, 
+            petname = petName,
+            petage= petAge,
+            weight = petWeight,
+            old_egg_count = current_eggs,
+            new_egg_count = remain_eggs, 
+        }
+        
+        table.insert(hatchPetls,pet_item);
     end
      
     -- Send the main report
     local finalDescription = table.concat(descriptionLines, "\n")
+
+    --make data for storage
+    local db_data = {
+        pets_hatched = hatchPetls,
+        serverversion = serverv,
+        username = hatch_player_uname, 
+        buff_seal = _sellbuff,
+        buff_koi = _hatchbuff,
+        buff_bron = pet_size_bonus,
+        PetPassiveBonus = passive_pet_bonus,
+        bonus_egg_back = got_eggs_back, -- seals
+        bonus_recovery = recovered_eggs, -- koi
+    }
+    
     
     if FSettings.send_everyhatch_alert then
-        sendWebhook("Hatch Report", finalDescription, 3447003) -- Blue color
+        sendWebhook("Hatch Report", finalDescription, 3447003, db_data) -- Blue color
     end
    
 
@@ -1178,6 +1735,8 @@ function GetEggCount(eggName)
             return uses
         end
     end
+    
+    -- check if the user is holding the egg
     return 0
 end
 
@@ -1214,7 +1773,7 @@ function FindEggLostGainDiff()
 end
  
 -- finds egg to place, if no egg it will scan full list of egg array or stop if no eggs
-local function findEggToPlaceBasedOnPriority()
+local function findEggToPlaceBasedOnPriority_old()
     for _, eggName in ipairs(eggs_to_place_array) do
         local foundTool = findEggTool(eggName)
         if foundTool then 
@@ -1227,25 +1786,45 @@ local function findEggToPlaceBasedOnPriority()
     return nil
 end
 
--- random pos/ not even used
-local function GetRandomPosInFarm(pFarm)
-    local center = pFarm.Center_Point.Position 
-    local randomPos
-    
-    local x = center.X + (math.random(0, 1) * 2 - 1) * (15 + math.random() * 5)
-    local z = center.Z + (math.random() * 5) - 25
-    randomPos = Vector3.new(x, center.Y, z)
-    
-    return randomPos
+local function findEggToPlaceBasedOnPriority()
+    -- Collect enabled eggs with their order
+    local enabledEggs = {}
+    for eggName, data in pairs(FSettings.eggs_to_place_array) do
+        if data.enabled then
+            table.insert(enabledEggs, {name = eggName, order = data.order})
+        end
+    end
+
+    -- Sort by order
+    table.sort(enabledEggs, function(a, b)
+        return a.order > b.order
+    end)
+
+    -- Loop through sorted enabled eggs
+    for _, egg in ipairs(enabledEggs) do
+        local foundTool = findEggTool(egg.name)
+        if foundTool then
+            return foundTool
+        else
+            warn(egg.name .. " not found, moving to next")
+        end
+    end
+
+    -- No eggs found
+    return nil
 end
 
 
 local function GetCountEggsOnFarm()
     local f_count = 0
-    
+    -- crates are also placed in this location, filter eggs only
     local array_ob = mObjects_Physical:GetChildren()
-    task.wait(0.3);
-    f_count = #array_ob
+    for _, value in ipairs(array_ob) do
+        if value and value:IsA("Model") and value.Name == "PetEgg" then
+            f_count = f_count + 1
+        end
+    end
+    task.wait(0.3); 
     return f_count
 end
 
@@ -1282,110 +1861,7 @@ local function getPredefinedEggPositions(center)
     return positions
 end
 
-
-local function placeMissingEggsold(myFarm)
-    is_max_eggs_reached = false
-    print("Starting to place eggs...")
-    lbl_stats:SetText("")
-    local humanoid = Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    humanoid:UnequipTools()
-    task.wait(0.3)
-   
-    local target_egg_am = 60
-   
-    local user_max_egg = GetMaxEggCapacity()
-    local eggToolToEquip = findEggToPlaceBasedOnPriority()
-    if not eggToolToEquip then
-        warn("No eggs in inventory")
-        SendInfoNoEggs()
-        --is_forced_stop = true
-        return
-    end
-     
-    if not mObjects_Physical then 
-        warn("Objects_Physical not found {placeMissingEggs}")
-        return
-    end
-
-    -- 1. Get all predefined positions from your function.
-    local center = myFarm.Center_Point.Position
-    local availablePositions = getPredefinedEggPositions(center)
-
-    -- 2. Shuffle the positions to ensure placement is random.
-    for i = #availablePositions, 2, -1 do
-        local j = math.random(i)
-        availablePositions[i], availablePositions[j] = availablePositions[j], availablePositions[i]
-    end
-     
-    local timetoplace = 0
-    -- Loop to place the eggs
-    for i = 1, target_egg_am do
-       
-        eggToolToEquip = findEggToPlaceBasedOnPriority()
-     
-        if is_max_eggs_reached then break end
-        if timetoplace > 9 then break end
-        
-        timetoplace = timetoplace + 1 
-        if not eggToolToEquip then
-            warn("Could not find any placeable eggs from your priority list in the backpack. Stopping.")
-            break
-        end
-        
-        humanoid:EquipTool(eggToolToEquip)
-        task.wait(0.3)
-        local egg_on_farm = GetCountEggsOnFarm()
-        
-        if egg_on_farm >= user_max_egg or is_max_eggs_reached then
-            is_max_eggs_reached = true
-            warn("Max eggs placed")
-            lbl_stats:SetText("Max eggs placed")
-            task.wait(0.3)
-            break
-        end
-
-        -- Check if we have any valid spots left from our list.
-        if #availablePositions == 0 then
-            warn("No more predefined placement spots available.")
-            lbl_stats:SetText("No more predefined placement spots available.")
-            is_max_eggs_reached = true 
-            break
-        end
-        
-        -- Get the next random position from our shuffled list.
-        local placePos = table.remove(availablePositions)
-          
-
-        if eggToolToEquip.Parent == Character then 
-            if FSettings.is_test == false then
-                PetEggService:FireServer("CreateEgg", placePos)
-            end
-            --task.wait(0.3) -- bit of delay
-            print("Placed a '" .. eggToolToEquip:GetAttribute("h") .. "' egg.") 
-        else
-            lbl_stats:SetText("Failed to equip the egg tool")
-            warn("Failed to equip the egg tool: ")
-            task.wait(1)
-            if not eggToolToEquip or not eggToolToEquip.Parent then
-                -- null
-            else
-                humanoid:EquipTool(eggToolToEquip) 
-            end
-            
-        end
-
-        task.wait(0.1)
-    end
-    
-    print("✅ Egg placement complete.")
-    
-    if humanoid then
-        humanoid:UnequipTools()
-        task.wait(0.1)
-    end
-end
-
+ 
 
 local function placeMissingEggs(myFarm)
     print("Starting to place eggs...")
@@ -1444,7 +1920,7 @@ local function placeMissingEggs(myFarm)
 
         -- FIX #2: Equip the tool and then immediately check if it was successful.
         if not eggToolToEquip.Parent then
-            break
+            continue
         end
         humanoid:EquipTool(eggToolToEquip)
         task.wait(0.1) -- Brief wait to ensure the parent property updates.
@@ -1520,6 +1996,15 @@ local function FavoritePets()
             -- if pet is in the light but weight is bigger than sell weight then fav it also
             if petToSell and petWeight >= sell_w then
                 requires_fav = true 
+            end
+            
+            -- sell mode for Ostrich
+            if FSettings.is_age_hatch_mode == true then
+                -- we keep anything below
+                local keepAge = tonumber(FSettings.hatch_mode_age_to_keep) or 1
+                if petAge <= keepAge then
+                    requires_fav = false
+                end
             end
 
             if requires_fav then
@@ -1728,7 +2213,7 @@ end
 
 
 -- hatchs all eggs
-local function HatchAllEggsAvailable(myfarm)
+local function HatchAllEggsAvailable(hatch_all)
     warn("Starting to hatch eggs..")
 
     if not mObjects_Physical then
@@ -1736,13 +2221,19 @@ local function HatchAllEggsAvailable(myfarm)
         lbl_stats:SetText("Issue finding eggs on farm")
         return false
     end
- 
+    local is_hatch_all = true
     local ready_to_hatch_eggs = {}
     local eggs_on_farm_array = mObjects_Physical:GetChildren();
+    
+    if not hatch_all then
+        is_hatch_all = false
+    else
+        is_hatch_all = hatch_all
+    end
 
     for _, obj in ipairs(eggs_on_farm_array) do
         -- Check if the object is a valid, ready-to-hatch egg model
-        if obj:IsA("Model") and obj:GetAttribute("TimeToHatch") == 0 then
+        if obj:IsA("Model") and obj:GetAttribute("TimeToHatch") == 0 and obj.Name == "PetEgg" then
             if not hatching_egg_name then
                 hatching_egg_name = obj:GetAttribute("EggName")
             end
@@ -1756,22 +2247,38 @@ local function HatchAllEggsAvailable(myfarm)
 
     local count_ready_eggs = #ready_to_hatch_eggs
     print("Ready to hatch eggs:", count_ready_eggs)
-
+     
     -- New, more reliable hatching logic
     if count_ready_eggs > 0 then
         for _, eggModel in ipairs(ready_to_hatch_eggs) do
             local eggName = eggModel:GetAttribute("EggName") or "Unknown Egg"
+            local uuid = eggModel:GetAttribute("OBJECT_UUID")
             print("   - Found a ready egg: " .. eggName .. ". Firing event...")
             lbl_stats:SetText("Hatching: " .. eggName)
+            
+            local can_hatch_this = true
+            -- prevent egg hatching if this is a big or huge pet according to weight set
+            local pet_data = found_pet_data[uuid]
+            if pet_data and is_hatch_all == false then
+                local _weight = pet_data.weight
+                local _petname = pet_data.petname
+                if _weight >= FSettings.sell_weight then
+                    -- we can't hatch this egg.
+                    can_hatch_this = false
+                    lbl_stats:SetText("Cant hatch egg, weight is high," .. _petname)
+                    -- add to the array
+                    table.insert(big_pets_hatch_models,eggModel)
+                    --task.wait(4)
+                end
+            end
 
             -- This is the direct and correct way to hatch the egg
             if FSettings.is_test == false then
-                PetEggService:FireServer("HatchPet", eggModel)
-                --task.wait(0.2)
-            end
-            
-            -- A small delay is good practice to avoid overwhelming the server
-            --task.wait(3.3) -- hatch delay
+                if can_hatch_this then
+                    PetEggService:FireServer("HatchPet", eggModel)
+                end
+                task.wait(0.1)
+            end 
         end
 
        -- task.wait(0.3) -- await
@@ -1802,17 +2309,19 @@ end
 
 -- UI
 local function UpdateUITeamCount()
-    if not lbl_selected_team1_count or not lbl_selected_team2_count or not lbl_selected_team3_count then
+    if not lbl_selected_team1_count or not lbl_selected_team2_count or not lbl_selected_team3_count or not lbl_selected_team4_count then
         return
     end
 
     local tm1_count = #FSettings.team1
     local tm2_count = #FSettings.team2
     local tm3_count = #FSettings.team3
+    local tm4_count = #FSettings.team4
     local total_p = GetMaxPetCapacity()
     lbl_selected_team1_count:SetText("Selected: " .. tm1_count .. "/" .. total_p)
     lbl_selected_team2_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
     lbl_selected_team3_count:SetText("Selected: " .. tm3_count .. "/" .. total_p)
+    lbl_selected_team4_count:SetText("Selected: " .. tm4_count .. "/" .. total_p)
 end
 
 
@@ -1841,7 +2350,8 @@ local function SessionLoop()
         is_max_eggs_reached = false
         hatching_egg_name = nil
         starting_egg_count = 0
-        waiting_for_hatch_count =0
+        waiting_for_hatch_count = 0
+        big_pets_hatch_models = {}
 
         lbl_stats:SetText("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
@@ -1855,32 +2365,37 @@ local function SessionLoop()
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.5);
         lbl_stats:SetText("Check Egg Reduction Team for placement..." .. tostring(is_ready_hatch))
-       
-        if FSettings.disable_team3 == false and is_ready_hatch == false and #FSettings.team3 > 0 and eggs_onfarm > 0 then
-            lbl_stats:SetText("Placing egg reduction team..")
-            if UnEquipAllPets() == false then
-                lbl_stats:SetText("[reduction team] Failed to unequip. Retrying cycle in 5s...")
-                print("reduction team Error: Failed to unequip pets. Retrying cycle.")
-                task.wait(5)
-                continue -- Restart the loop
-            end
-            lbl_stats:SetText("[T]Placing egg reduction team...")
-            task.wait(0.3)
-            if not EquipPets(FSettings.team3) then
-                lbl_stats:SetText("Team 3 failed. Retrying cycle in 5s...")
-                print("SessionLoop Error: Failed to place egg reduction team. Retrying cycle.")
-                task.wait(5)
-                continue -- Restart the loop
+        
+        if FSettings.disable_team3 == false then
+            -- Place team only if eggs need reduction
+            if is_ready_hatch == false then
+                -- place team
+                 lbl_stats:SetText("Placing egg reduction team..")
+                if UnEquipAllPets() == false then
+                    lbl_stats:SetText("[reduction team] Failed to unequip. Retrying cycle in 5s...")
+                    print("reduction team Error: Failed to unequip pets. Retrying cycle.")
+                    task.wait(5)
+                    continue -- Restart the loop
+                end
+                lbl_stats:SetText("[T]Placing egg reduction team...")
+                task.wait(0.3)
+                if not EquipPets(FSettings.team3) then
+                    lbl_stats:SetText("Team 3 failed. Retrying cycle in 5s...")
+                    print("SessionLoop Error: Failed to place egg reduction team. Retrying cycle.")
+                    task.wait(5)
+                    continue -- Restart the loop
+                end
             end
         end
-        task.wait(3.4)
+        
+        task.wait(3.5)
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch(mFarm) == false and not is_forced_stop and FSettings.is_running do
             lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
-            task.wait(3) -- Wait 2 seconds before checking again
+            task.wait(5) -- Wait 2 seconds before checking again
         end
 
         -- If the loop was stopped while waiting, exit now.
@@ -1913,12 +2428,12 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Waiting for hatch buffs...")
-        task.wait(4)
+        task.wait(3.5)
 
         lbl_stats:SetText("Hatching all available eggs...")
-        UpdatePlayerStats()
+        UpdatePlayerStats() 
         tracked_bonus_egg_recovery = PlayerSecrets.EggRecoveryChance
-        HatchAllEggsAvailable(mFarm)
+        HatchAllEggsAvailable(false) -- HATCH EGGS, provide false, we can't hatch big pets here
 
         if is_pet_inventory_full then -- CRITICAL STOP: This cannot be recovered by retrying.
             SendErrorMessage("Pet Inventory is full! Stopping session.")
@@ -1926,11 +2441,48 @@ local function SessionLoop()
             --break
         end
         lbl_stats:SetText("Hatching Complete.")
-        task.wait(3)
+        task.wait(2)
         
         
         
+        -- ============ BIG PET HATCH
+        -- These pets can be hatched using pets that can increase size.
+        if #big_pets_hatch_models > 0 then
+            -- We have big pets to hatch
+            
+            -- place big pets hatching team here...
+            -- Team 4 is big size pet team
+            if FSettings.disable_team4 == false then 
+                if UnEquipAllPets() == false then
+                    lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
+                    print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
+                    task.wait(5)
+                    continue -- Restart the loop
+                end
+                task.wait(0.2)
+                lbl_stats:SetText("Placing pet size team...")
+                if not EquipPets(FSettings.team4) then
+                    lbl_stats:SetText("Team 4 failed. Retrying cycle in 5s...")
+                    print("SessionLoop Error: Failed to place hatching team. Retrying cycle.")
+                    task.wait(5)
+                    continue -- Restart the loop
+                end 
+            end
+            
+          
+            lbl_stats:SetText("Hatching big pets.");
+            task.wait(3.9) -- wait for buffs
+            UpdatePlayerStats() --  update the player stats so we know if buffs were applied etc
+            pet_size_bonus = PlayerSecrets.PetEggHatchSizeBonus
+            
+            HatchAllEggsAvailable(true) -- set to true to hatch all eggs including big
+            lbl_stats:SetText("Hatching Big Pets Complete.")
+            task.wait(2) -- wait a bit after hatching
+           
+        end
         
+        
+ 
          --================= SELL CYCLE =================
         lbl_stats:SetText("Favouriting Pets...")
         if FavoritePets() == false then
@@ -1959,13 +2511,13 @@ local function SessionLoop()
         end
 
         lbl_stats:SetText("Selling pets...")
-        task.wait(4.3) -- Wait for sell buffs to apply
+        task.wait(6) -- Wait for sell buffs to apply
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
-        task.wait(2)
+        task.wait(1)
         lbl_stats:SetText("Selling complete.")
-        AfterUpdateEggCountForAllEggs()
+        UpdatePetData()
         
         --================= CLEANUP AND REPORTING ================= 
         task.wait(0.4)
@@ -1978,7 +2530,11 @@ local function SessionLoop()
         if is_forced_stop then -- CRITICAL STOP: This cannot be recovered by retrying.
             lbl_stats:SetText("Out of eggs to place. Stopping farm.")
             --break
-        end
+        end  
+        
+        passive_pet_bonus = PlayerSecrets.PetPassiveBonus
+       
+        AfterUpdateEggCountForAllEggs()
   
         -- Update and save tracking data
         local hatched_this_cycle = #newlyHatchedNames
@@ -2143,7 +2699,7 @@ local function MainLoop()
         -- track what it was at this point
         tracked_bonus_egg_recovery = PlayerSecrets.EggRecoveryChance
         
-        HatchAllEggsAvailable(mFarm);
+        HatchAllEggsAvailable();
         
         if is_pet_inventory_full then
             SendErrorMessage("Pet Inventory is full!")
@@ -2322,27 +2878,34 @@ local function PetTeamsUi()
     local GroupBoxSellingTeam = TeamsTab:AddLeftGroupbox("Selling Team", "badge-dollar-sign")
     local GroupBoxHatchingTeam = TeamsTab:AddRightGroupbox("Hatching Team", "egg")
     local GroupBoxEggReductionTeam = TeamsTab:AddLeftGroupbox("Egg Reduction Team", "timer-reset")
+    local GroupBoxEggPetSizeTeam = TeamsTab:AddRightGroupbox("Egg PetSize Team", "turtle")
      
    
     
-     local lbl_sellinfo = GroupBoxSellingTeam:AddLabel({
-        Text = "Please select a team that will be placed before selling the pets. Teams are 💾 auto saved.",
+    local lbl_sellinfo = GroupBoxSellingTeam:AddLabel({
+        Text = "Please select a team that will be placed before selling the pets. 💾 auto saved.",
         DoesWrap = true
     })
     
     local lvl_hatchinfo = GroupBoxHatchingTeam:AddLabel({
-        Text = "Please select a team that will be placed before hatching the eggs. Teams are 💾 auto saved.",
+        Text = "Please select a team that will be placed before hatching the eggs. 💾 auto saved.",
         DoesWrap = true
     })
     
-     local lvl_eggreductioninfo = GroupBoxEggReductionTeam:AddLabel({
-        Text = "Please select a team that will be placed if eggs are not ready. Teams are 💾 auto saved.",
+    local lvl_eggreductioninfo = GroupBoxEggReductionTeam:AddLabel({
+        Text = "Please select a team that will be placed if eggs are not ready. 💾 auto saved.",
+        DoesWrap = true
+    })
+    
+    local lvl_eggbigsizeinfo = GroupBoxEggPetSizeTeam:AddLabel({
+        Text = "Please select a team that will be placed for big pet hatch.💾 auto saved.",
         DoesWrap = true
     })
     
     lbl_selected_team1_count = GroupBoxSellingTeam:AddLabel("-")
     lbl_selected_team2_count = GroupBoxHatchingTeam:AddLabel("-")
     lbl_selected_team3_count = GroupBoxEggReductionTeam:AddLabel("-")
+    lbl_selected_team4_count = GroupBoxEggPetSizeTeam:AddLabel("-")
    
     UpdateUITeamCount()
     
@@ -2372,24 +2935,22 @@ local function PetTeamsUi()
 
             local count_vals = #tmp_tbl
             if count_vals > GetMaxPetCapacity() then
-                Library:Notify("Team size maxed", 2)
-                return false
-            else
-                FSettings.team1 = tmp_tbl
+                Library:Notify("Team size maxed", 2) 
+            else 
                 if is_value_selection_update == false then
+                    FSettings.team1 = tmp_tbl
                     SaveData()
                     UpdateUITeamCount()
-                    Library:Notify("Sell Team Updated", 2)
-                    is_value_selection_update = false
+                    Library:Notify("Sell Team Updated", 2) 
                 end
                 
                 
             end
+            
+            is_value_selection_update = false -- reset
         end
     })
-    
-    is_value_selection_update = true
-    MultiDropdownSellTeam:SetValue(team1data)
+     
     
     
     GroupBoxSellingTeam:AddDivider()
@@ -2434,6 +2995,8 @@ local function PetTeamsUi()
         end
     })
 
+    --============================  TEAM 1 END
+
 
     -- Team 2, hatching team
     local team2data = ConvertUUIDToPetNamesPairs(FSettings.team2)
@@ -2459,26 +3022,24 @@ local function PetTeamsUi()
             
             local count_vals = #tmp_tbl
             if count_vals > GetMaxPetCapacity() then
-                Library:Notify("Team size maxed", 2)
-                return false
+                Library:Notify("Team size maxed", 2) 
             else
                 warn("Saved Team 2 called", HttpService:JSONEncode(Values))
-                FSettings.team2 = tmp_tbl
+                
                 if is_value_selection_update == false then 
+                    FSettings.team2 = tmp_tbl
                     SaveData()
                     UpdateUITeamCount()
                     Library:Notify("Hatch Team Updated", 2)
-                    is_value_selection_update = false
+                   
                 end
                 
             end
+            
+            is_value_selection_update = false
         end
     })
-    
-    is_value_selection_update = true
-    MultiDropdownHatchTeam:SetValue(team2data)
-    
-    
+     
     GroupBoxHatchingTeam:AddDivider() 
     
     local ButtonHatchTeam1 = GroupBoxHatchingTeam:AddButton({
@@ -2552,25 +3113,23 @@ local function PetTeamsUi()
             local count_vals = #tmp_tbl
             if count_vals > GetMaxPetCapacity() then
                 Library:Notify("Team size maxed", 2)
-                return false
             else
-                warn("Saved Team 3 called", HttpService:JSONEncode(Values))
-                FSettings.team3 = tmp_tbl
-                if is_value_selection_update == false then 
+                --warn("Saved Team 3 called", HttpService:JSONEncode(Values))
+                
+                if is_value_selection_update == false then
+                    FSettings.team3 = tmp_tbl
                     SaveData()
                     UpdateUITeamCount()
                     Library:Notify("Egg Reduction Team Updated", 2)
-                    is_value_selection_update = false
+                   
                 end
                 
             end
+            
+            is_value_selection_update = false
         end
     })
-    
-    is_value_selection_update = true
-    MultiDropdownEggReductionTeam:SetValue(team3data)
-    
-    
+     
     GroupBoxEggReductionTeam:AddDivider() 
     
     local ButtonEqiupTeam3 = GroupBoxEggReductionTeam:AddButton({
@@ -2614,23 +3173,198 @@ local function PetTeamsUi()
     })
     
     
+     
     
-    -- reset it and update and visuals
+    
+    -- Team 4 , pet size team 
+    local team4data = ConvertUUIDToPetNamesPairs(FSettings.team4)
+    
+    --- print("pets: ", HttpService:JSONEncode(petCache));
+    -- print("team4: ", HttpService:JSONEncode(team4data));
+    MultiDropdownEggPetSizeTeam = GroupBoxEggPetSizeTeam:AddDropdown("dropdownSellTeam", {
+        Values = GetPetsCacheAsTable(),
+        Default = {}, -- Default selected values for multi-select
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "🐲 PetSize Team Selection",
+        Callback = function(Values)
+            local tmp_tbl = {}
+            for Value, Selected in pairs(Values) do
+                if Selected then
+                    local _uuid = extractUUIDFromString(Value) 
+                    if _uuid then
+                        table.insert(tmp_tbl,_uuid)
+                    end 
+                end
+            -- loop ends
+            end
+
+            local count_vals = #tmp_tbl
+            if count_vals > GetMaxPetCapacity() then
+                Library:Notify("Team size maxed", 2)
+                
+            else
+                
+                if is_value_selection_update == false then
+                    FSettings.team4 = tmp_tbl
+                    SaveData()
+                    UpdateUITeamCount()
+                    Library:Notify("PetSize Team Updated", 2)
+                    
+                end
+                
+                
+            end
+            is_value_selection_update = false
+        end
+    })
+     
+    
+    GroupBoxEggPetSizeTeam:AddDivider()
+    
+    local ButtonPalceTeam1 = GroupBoxEggPetSizeTeam:AddButton({
+        Text = "✅ Equip",
+        Func = function() 
+            if #FSettings.team4 == 0 then
+                Library:Notify("Team is empty", 2)
+            else
+                EquipPets(FSettings.team4)
+            end
+            
+        end 
+    })
+    
+    -- Unequip
+    ButtonPalceTeam1:AddButton({
+        Text = "❌ Unequip All",
+        Func = function()
+            UnEquipAllPets()
+            UpdatePetData()
+        end
+    })
+    
+    
+    local ToggleTeam4Disable = GroupBoxEggPetSizeTeam:AddToggle("ToggleTeam4Disable", {
+        Text = "Disable Team 1?",
+        Default = FSettings.disable_team4,
+        Tooltip = "Disabled teams won't be used.",
+        Callback = function(Value)
+            FSettings.disable_team4 = Value
+            if Value then
+                SaveData()
+                Library:Notify("Team4 disabled", 2)
+            else
+                SaveData()
+                Library:Notify("Team4 Enabled", 2)
+            end
+            
+        end
+    })
+
+    --============================  TEAM 4 END
+    
+    
+    
+     -- reset it and update and visuals
+    UpdatePetData()
     UpdateUITeamCount()
+    task.wait(0.1)
     is_value_selection_update = false
-    
-    
-    
-    
     
 end
 
 -- call it
 PetTeamsUi();
+
 -- End of Pets Team ==========================================================================
 
 
--- Egg Sell
+
+-- Egg Priority
+local function MEggUi()
+    -- Create the new "Eggs" Tab
+    local max_order = 100
+    local UIEggTab = Window:AddTab({
+        Name = "Eggs Priority",
+        Description = "Manage Egg hatching priority",
+        Icon = "egg"
+    })
+
+    -- Create a groupbox to hold the egg settings
+    local GroupBoxEggs = UIEggTab:AddLeftGroupbox("Egg Priority & Settings", "list-ordered")
+
+    -- Add an informational label
+    GroupBoxEggs:AddLabel({
+        Text = "Enable or disable eggs and set their hatching priority. higher numbers are higher priority.",
+        DoesWrap = true
+    })
+    GroupBoxEggs:AddDivider()
+
+    -- 1. Create a temporary table to sort the eggs by their order for display
+    local sortedEggs = {}
+    -- Reference the array from FSettings now
+    for name, data in pairs(FSettings.eggs_to_place_array) do
+        table.insert(sortedEggs, {name = name, order = data.order})
+    end
+
+    table.sort(sortedEggs, function(a, b)
+        return a.order > b.order
+    end)
+    
+    -- 2. Loop through the sorted table to create the UI elements in order
+    for _, eggInfo in ipairs(sortedEggs) do
+        local eggName = eggInfo.name
+        -- Get the initial data from the FSettings table
+        local eggData = FSettings.eggs_to_place_array[eggName]
+
+        -- Create a Toggle for enabling/disabling the egg and store it in a variable
+        local eggToggle = GroupBoxEggs:AddToggle(eggName .. "_toggle", {
+            Text = eggName,
+            Default = eggData.enabled,
+            Tooltip = "Enable/Disable hatching for " .. eggName,
+            Callback = function(Value)
+                -- Update the value directly in the FSettings table
+                FSettings.eggs_to_place_array[eggName].enabled = Value
+                SaveData() -- Save the settings
+                Library:Notify(eggName .. (Value and " Enabled" or " Disabled"), 1)
+            end
+        })
+        
+        --[[
+            NEW CHANGE: Check for and apply the custom color
+        ]]
+        if eggData.color then
+            eggToggle.TextLabel.TextColor3 = eggData.color
+        end
+
+        -- Create a Slider to set the priority order
+        GroupBoxEggs:AddSlider(eggName .. "_slider", {
+            Text = "Priority Order [Higher = First]",
+            Default = eggData.order,
+            Min = 1,
+            Max = max_order, -- Max priority is the total number of eggs
+            Rounding = 0, -- Use whole numbers for priority
+            Callback = function(Value)
+                -- Update the value directly in the FSettings table
+                FSettings.eggs_to_place_array[eggName].order = Value
+                SaveData() -- Save the settings
+                --Library:Notify(eggName .. " priority set to " .. Value, 1)
+            end
+        })
+
+        GroupBoxEggs:AddDivider()
+    end
+end
+
+-- Call the new function to create the UI
+MEggUi()
+ 
+
+
+
+
+
  
 -- ===========================================================================================
 -- Sell Settings UI (Reads directly from organized FSettings)
@@ -2658,6 +3392,20 @@ local function SellSettingsUi()
             FSettings.sell_weight = tonumber(Value) or 3
             SaveData()
             Library:Notify("Pet Weight Updated ", 2)
+        end
+    })
+    
+    
+      -- Hatch mode sell
+    local toggleHatchAgeModeReport = GroupBoxSellWeight:AddToggle("toggleHatchAgeModeReport", {
+        Text = "Ostrich Mode",
+        Default = FSettings.is_age_hatch_mode,
+        Tooltip = "Sells everything under age of " .. FSettings.hatch_mode_age_to_keep,
+        Callback = function(Value)
+            FSettings.is_age_hatch_mode = Value
+            print("Toggle changed to:", Value)
+            SaveData()
+            Library:Notify("Updated Hatch Mode", 3)
         end
     })
         
@@ -2708,8 +3456,58 @@ end
 -- End of Sell Settings UI
 -- ===========================================================================================
  SellSettingsUi();
+
+
+
+
+
+
+
+--[[
+  At the top of your script (or somewhere accessible), declare a variable
+  to hold the stats label object. This allows you to update it later.
+]]
+
+
+
+-- Events UI Function
+local function MEventsUi()
+    -- 1. Create the new "Events" Tab
+    local UIEventsTab = Window:AddTab({
+        Name = "Events",
+        Description = "Manage and view game events",
+        Icon = "calendar-heart" -- An icon that fits the theme
+    })
+
+    -- 2. Create groupboxes for organization
+    local GroupBoxEventControls = UIEventsTab:AddLeftGroupbox("Event Controls", "toggle-left")
+    
+     lbl_fariystats = GroupBoxEventControls:AddLabel({
+        Text = "Waiting for stats...", -- Initial placeholder text
+        DoesWrap = true
+    })
+    
+    GroupBoxEventControls:AddDivider()
+    
+    -- 3. Add your "Fairy Spam" toggle to the new groupbox
+    GroupBoxEventControls:AddToggle("toggleFairy", {
+        Text = "Fairy Spam",
+        Default = FSettings.is_fairy_scanner_active,
+        Tooltip = "Scans for and collects from Fairies",
+        Callback = function(Value)
+            FSettings.is_fairy_scanner_active = Value
+            SaveData()
+            Library:Notify("Fairy Scanner " .. (Value and "Enabled" or "Disabled"), 1)
+        end
+    })
+    -- You can add other event-related toggles here in the future
  
- 
+end
+
+-- Call the function to build the UI
+MEventsUi()
+
+
 -- Settings
 local function SettingsUi()
     local UISettingsTab = Window:AddTab({
@@ -2742,7 +3540,18 @@ local function SettingsUi()
         end
     })
     
-    
+   
+     -- Egg Esp
+    local toggleEggView = GroupBoxOtherSettings:AddToggle("toggleEggView", {
+        Text = "Egg Esp",
+        Default = FSettings.is_egg_esp,
+        Tooltip = "Show/Hide Egg Info",
+        Callback = function(Value)
+            FSettings.is_egg_esp = Value
+            SaveData()
+            Library:Notify("Updated", 3)
+        end
+    })
     
     --======== WEbhook
     
@@ -2808,14 +3617,99 @@ local function SettingsUi()
             Library:Notify("Sent Test Webhook", 3)
         end 
     })
+    
+    -- reload pet teams
+   local ButtonReloadPetTeam = GroupBoxWebhook:AddButton({
+        Text = "Reload Pet Team",
+        Func = function() 
+             UpdatePetData()
+            Library:Notify("Reloaded Pets", 1)
+        end 
+    })
 
 end
 
 SettingsUi()
 
+
+
+--=========== Shops
+
+-- Shops
+local function MShopUi()
+    local UIShopTab = Window:AddTab({
+        Name = "Shops",
+        Description = "Shops",
+        Icon = "store"
+    })
+
+    local GroupBoxWebhook = UIShopTab:AddLeftGroupbox("Shops", "link")
+    local GroupBoxOtherSettings = UIShopTab:AddRightGroupbox("Shop Settings", "settings-2")
+ 
+    -- info
+     local lblinfo = GroupBoxWebhook:AddLabel({
+        Text = "Buy shops? by default all shops will be purchased when active",
+        DoesWrap = true
+    })
+    
+    
+    --======== Shops buttons 
+    local btnShopGear = GroupBoxWebhook:AddToggle("btnShopGear", {
+        Text = "Buy Gear Shop",
+        Default = FSettings.buy_gearshop,
+        Tooltip = "Enable Gear Shop",
+        Callback = function(Value)
+            FSettings.buy_gearshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnShopSeed = GroupBoxWebhook:AddToggle("btnShopSeed", {
+        Text = "Buy Seed Shop",
+        Default = FSettings.buy_seedshop,
+        Tooltip = "Enable Seed Shop",
+        Callback = function(Value)
+            FSettings.buy_seedshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnShopEgg = GroupBoxWebhook:AddToggle("btnShopEgg", {
+        Text = "Buy Egg Shop",
+        Default = FSettings.buy_eggshop,
+        Tooltip = "Enable Egg Shop",
+        Callback = function(Value)
+            FSettings.buy_eggshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnMerShop = GroupBoxWebhook:AddToggle("btnMerShop", {
+        Text = "Buy Merchant Shop",
+        Default = FSettings.buy_merchant,
+        Tooltip = "Buy All Merchant Shops",
+        Callback = function(Value)
+            FSettings.buy_merchant = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+
+
+end
+
+MShopUi();
+
+
+
+
+ 
 -- icons name from lucide.dev, third is an optional description
  
-CheckAndSendTimedReports()
+--CheckAndSendTimedReports()
 
 --auto start the rejoin if already started before #no auto start atm
 if not main_thread and FSettings.is_running and FSettings.is_auto_rejoin then
