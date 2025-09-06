@@ -108,6 +108,32 @@ local FSettings = {
     team7 = {}, -- added
 
     sell_pets = {
+        -- Eggs [dont need, no one can get it]
+        -- Exotic Bug Egg [is same as bug egg, dont need]
+        -- Pet Eggs [dont need]
+        -- Corrupted Zen Egg [dnt need]
+        -- Premium Primal | Egg Premium Anti Bee Egg || Premium Oasis Egg (dont need these, same as normal versions)
+        
+        -- Common Summer Egg
+        ["Common Summer Egg"] = {
+            ["Starfish"] = true, ["Seagull"] = true, ["Crab"] = true
+        },
+        
+        -- Uncommon Egg
+        ["Uncommon Egg"] = {
+            ["Black Bunny"] = true, ["Chicken"] = true, ["Cat"] = true, ["Deer"] = true
+        },
+        
+        -- Mythical Egg
+        ["Mythical Egg"] = {
+            ["Grey Mouse"] = true, ["Brown Mouse"] = true, ["Squirrel"] = true, ["Red Giant Ant"] = true, ["Red Fox"] = false
+        },
+        
+        -- Legendary Egg
+        ["Legendary Egg"] = {
+            ["Cow"] = true, ["Silver Monkey"] = true, ["Sea Otter"] = true, ["Turtle"] = true, ["Polar Bear"] = false
+        },
+    
         -- Rainbow Premium Primal Egg
         ["Rainbow Premium Primal Egg"] = {
             ["Rainbow Parasaurolophus"] = true, ["Rainbow Iguanodon"] = true, ["Rainbow Pachycephalosaurus"] = true, 
@@ -188,6 +214,7 @@ local FSettings = {
             ["Hedgehog"] = true, ["Mole"] = true, ["Frog"] = true, ["Echo Frog"] = true, ["Night Owl"] = true, ["Raccoon"] = false,
         }
     },
+   
     eggs_to_place_array = {
         ["Common Egg"] = {enabled = true, order = 1, color = Color3.fromRGB(255, 0, 255)},       -- bright magenta
         ["Anti Bee Egg"] = {enabled = false, order = 2, color = Color3.fromRGB(255, 128, 0)},    -- neon orange
@@ -207,9 +234,20 @@ local FSettings = {
         ["Bee Egg"] = {enabled = false, order = 17, color = Color3.fromRGB(255, 255, 0)},        -- bright yellow
         ["Bug Egg"] = {enabled = false, order = 18, color = Color3.fromRGB(255, 128, 0)},        -- neon orange
         ["Premium Night Egg"] = {enabled = false, order = 19, color = Color3.fromRGB(255, 0, 128)}, -- neon pink
+        ["Common Summer Egg"] = {enabled = false, order = 20, color = Color3.fromRGB(255, 192, 203)}, -- pink
+        ["Exotic Bug Egg"] = {enabled = false, order = 23, color = Color3.fromRGB(255, 165, 0)}, -- orange
+        ["Legendary Egg"] = {enabled = false, order = 24, color = Color3.fromRGB(255, 215, 0)}, -- gold
+        ["Mythical Egg"] = {enabled = false, order = 25, color = Color3.fromRGB(0, 255, 255)}, -- cyan
+        ["Premium Anti Bee Egg"] = {enabled = false, order = 27, color = Color3.fromRGB(255, 140, 0)}, -- dark orange
+        ["Premium Oasis Egg"] = {enabled = false, order = 28, color = Color3.fromRGB(0, 191, 255)}, -- deep sky blue
+        ["Uncommon Egg"] = {enabled = false, order = 29, color = Color3.fromRGB(173, 255, 47)}, -- green-yellow
     }
 }
 
+-- these not needed for now
+--  ["Pet Eggs"] = {enabled = false, order = 26, color = Color3.fromRGB(255, 105, 180)}, -- hot pink
+-- ["Eggs"] = {enabled = false, order = 0, color = Color3.fromRGB(255, 255, 255)}, -- white *
+--  ["Corrupted Zen Egg"] = {enabled = false, order = 21, color = Color3.fromRGB(128, 128, 128)}, -- grey *
 
 
 -- Logs, contains all errors related logs, when something fails and saves and loads . maximum 100 log 
@@ -234,8 +272,7 @@ local user_s_key = ""
 local found_pet_data = {}
 -- stores big pets that we can't hatch
 local big_pets_hatch_models = {}
-
-local hatching_egg_name
+ 
 
 local is_value_selection_update = false -- used for preventing the teams to be saved again.
 
@@ -583,14 +620,12 @@ end
 
  
 -- these can be in settings and some on stats screen, main page, they are also sent in webhooks
-local starting_egg_count = 0;
 local newlyHatchedNames = {};
 local canSendReport = false;
 local got_eggs_back = 0;
 local recovered_eggs = 0;
 local passive_pet_bonus = 0
 local pet_size_bonus = 0
- 
 
 local is_loadout_ready = false; -- not used, but keep
 local is_pet_inventory_full = false
@@ -627,6 +662,14 @@ if not mObjects_Physical then
     return
 end
 
+
+
+local function unequipTools()
+    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    humanoid:UnequipTools()
+    task.wait(0.2)
+end
 
 
 
@@ -1095,7 +1138,7 @@ watchBackPack()
 
 -- Detect these, we detect these and use them
 local ev_backpack_full = "max backpack space"
-local ev_loaded_pets = "loaded pets" 
+local ev_loaded_pets = "loaded pets"
 local ev_max_eggs_reached = "max pet eggs"
 local ev_lucky_sell = "from selling your pet" --  when seal gives egg back
 local ev_hatch_lucky = "egg has been recovered" -- when koi repaints
@@ -1215,7 +1258,7 @@ local function sendWebhook(title, description, colour,db_data)
         webhook_url = FSettings.webhook_url,
         content = content or "", -- where @everyone would go
         embed = { title=title, description=description, color=colour or 0x00AFFF,
-                  footer={text="A9 Report"},
+                  footer={text="ExoticHub Report"},
                   timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ") },
         db = db_datax,
     }
@@ -1343,7 +1386,7 @@ UpdatePetData()
  
 
 
--- Get egg count, coutns passed in egg name
+-- Get egg count, count passed in egg name
 local function GetEggCount(eggName)
     if not eggName then return 0 end
     local egg_ar = Backpack:GetChildren();
@@ -1357,6 +1400,27 @@ local function GetEggCount(eggName)
     -- check if the user is holding the egg
     return 0
 end
+
+
+
+-- This will be called before to fill up egg counts
+local function BeforeUpdateEggCountForAllEggs()
+    for eggName, data in pairs(egg_counts) do
+        local current_countx = GetEggCount(eggName)
+        data.current_amount = current_countx
+    end
+end
+
+-- this called last to detect how many eggs we lost of gain
+local function AfterUpdateEggCountForAllEggs()
+    for eggName, data in pairs(egg_counts) do
+        local current_countx = GetEggCount(eggName)
+        data.new_amount = current_countx
+    end
+end
+
+-- call it right away
+BeforeUpdateEggCountForAllEggs()
 
 
 -- This checks if there are any eggs to be hatched
@@ -1407,57 +1471,25 @@ end
 local function HatchReport()
     local newPetNames = newlyHatchedNames
     if #newPetNames == 0 then return end
-    if hatching_egg_name == nil then
-        hatching_egg_name = ""
-    end
-    -- Gather all the stats first
-    local hatchedCount = #newPetNames
-    local remainingEggs = GetEggCount(hatching_egg_name)
-    local eggsUsed = starting_egg_count - remainingEggs
-    local eggsSaved = hatchedCount - eggsUsed
-     
-     
+
     local _hatchbuff = string.format("%.2f", tracked_bonus_egg_recovery or 0)
     local _sellbuff = string.format("%.2f", tracked_bonus_egg_sell_refund or 0)
-    
+    local _petsizebuff_display = string.format("%.2f", pet_size_bonus or 0)
     local serverv = GetServerVersion()
-    
     local hatch_player_uname = LocalPlayer.Name
+    local hatchedCount = #newPetNames
     
-    -- Main Report Construction
-    local descriptionLines = {
-        "**-> Session Info:**",
-        string.format("│ 👤 Username: ||`%s`||", hatch_player_uname),
-        string.format("│ 🥚 Hatching Egg: `%s (%s)`", hatching_egg_name, serverv),
-        "", -- Blank line for spacing
-        "**-> Stats:**",
-        string.format("│ ✨ **Buffs** Sell: `%s%%` Hatch: `%s%%`", _sellbuff, _hatchbuff),
-        string.format("│ ❤️ Favourited: `%d` 🎉 Hatched: `%d`", pets_fav_count or 0, hatchedCount or 0),
-        string.format("│ 🥚 Eggs Used: `%d`", eggsUsed or 0),
-        string.format("│ 💾 Eggs Saved: `%d`", eggsSaved or 0),
-        string.format("│ 🎯 Starting Eggs: `%d`", starting_egg_count or 0),
-        string.format("│ ⏳ Eggs Remaining: `%d`", remainingEggs or 0)
-    }
-
-
-    -- Conditionally add the "Lucky Events" section if they occurred
-    if true then
-        table.insert(descriptionLines, "")
-        table.insert(descriptionLines, "**-> Lucky Events! 🍀**")
-         
-        table.insert(descriptionLines, string.format("│ 🥚 Lucky Pet: `+%d Eggs`", got_eggs_back))
-        table.insert(descriptionLines, string.format("│ 🔄 Lucky Hatch: `+%d Eggs`", recovered_eggs))
-        
-    end
-
     -- Add the list of all hatched pets
     -- db pet list
     local hatchPetls = {} -- this used for storing data in db
-    
-    table.insert(descriptionLines, "")
-    table.insert(descriptionLines, string.format("**-> Pets Hatched (%d):**", hatchedCount))
+     
+    -- New grouping table (separate from hatchPetls)
+    local groupedEggs = {}
+     
+    local eggsUsed = 0 -- how many eggs we used?
+    local eggsSaved = 0 -- how many eggs we saved
     for _, fullName in ipairs(newPetNames) do
-        table.insert(descriptionLines, string.format("> `%s`", fullName))
+        -- table.insert(descriptionLines, string.format("> `%s`", fullName))
         
         local petName, petWeight, petAge = extractPetDetails(fullName)
         local peteggname = getEggNameByPetName(petName)
@@ -1473,7 +1505,74 @@ local function HatchReport()
         }
         
         table.insert(hatchPetls,pet_item);
+        
+        
+         -- build new grouped table
+        if not groupedEggs[peteggname] then
+            groupedEggs[peteggname] = {
+                start = current_eggs,
+                finish = remain_eggs,
+                pets = {}
+            }
+        end
+        
+        table.insert(groupedEggs[peteggname].pets, fullName)
+        -- group ends 
     end
+    
+    -- After building groupedEggs
+    for _, info in pairs(groupedEggs) do
+        eggsUsed = eggsUsed + (info.start - info.finish)
+    end 
+    -- Eggs saved is total hatched minus eggs used
+     eggsSaved = hatchedCount - eggsUsed
+     
+    -- Main Report Construction  
+    local descriptionLines = {}
+    
+    table.insert(descriptionLines, "**-> Session Info:**")
+    table.insert(descriptionLines, string.format("│ 👤 Username: ||`%s`||", hatch_player_uname))
+    table.insert(descriptionLines, string.format("│ 🖥️ Server Version: `%s`", serverv))
+    table.insert(descriptionLines, "") -- Blank line for spacing
+    
+    table.insert(descriptionLines, "**-> Stats:**")
+   
+    if pet_size_bonus <= 0 then
+        table.insert(descriptionLines, string.format("│ ✨ **Buffs** Sell: `%s%%` Hatch: `%s%%`", _sellbuff, _hatchbuff))
+    else
+        table.insert(descriptionLines, string.format("│ ✨ **Buffs** Sell: `%s%%` Hatch: `%s%%` PetSize: `%s%%`", _sellbuff, _hatchbuff,_petsizebuff_display))
+    end
+    table.insert(descriptionLines, string.format("│ ❤️ Fav: `%d` 🎉 Hatched: `%d`", pets_fav_count or 0, hatchedCount or 0))
+    table.insert(descriptionLines, string.format("│ 🥚 Eggs Used: `%d`", eggsUsed or 0))
+    table.insert(descriptionLines, string.format("│ 💾 Eggs Saved: `%d`", eggsSaved or 0)) 
+  
+    -- Conditionally add the "Lucky Events" section if they occurred
+    if true then
+        table.insert(descriptionLines, "")
+        table.insert(descriptionLines, "**-> Lucky Events! 🍀**")
+        table.insert(descriptionLines, string.format("│ 🥚 Lucky Pet: `+%d Eggs`", got_eggs_back))
+        table.insert(descriptionLines, string.format("│ 🔄 Lucky Hatch: `+%d Eggs`", recovered_eggs))
+    end
+
+    
+    
+    table.insert(descriptionLines, "")
+    table.insert(descriptionLines, string.format("**-> Pets Hatched (%d):**", hatchedCount))
+    
+    -- ✅ Now make UI for groups only (not every pet individually)
+    for eggName, info in pairs(groupedEggs) do
+        -- first line for the egg
+        table.insert(descriptionLines,
+            string.format("🐣**%s (St %d, End %d)**", eggName, info.start, info.finish)
+        )
+    
+        -- sub-lines for each pet hatched from this egg
+        for _, petFullName in ipairs(info.pets) do
+            table.insert(descriptionLines, string.format("> `%s`", petFullName))
+        end
+        table.insert(descriptionLines, "")
+    end
+        
      
     -- Send the main report
     local finalDescription = table.concat(descriptionLines, "\n")
@@ -1678,24 +1777,7 @@ local function findEggTool(eggName)
 end
 
 
--- This will be called before to fill up egg counts
-local function BeforeUpdateEggCountForAllEggs()
-    for eggName, data in pairs(egg_counts) do
-        local current_countx = GetEggCount(eggName)
-        data.current_amount = current_countx
-    end
-end
 
--- this called last to detect how many eggs we lost of gain
-local function AfterUpdateEggCountForAllEggs()
-    for eggName, data in pairs(egg_counts) do
-        local current_countx = GetEggCount(eggName)
-        data.new_amount = current_countx
-    end
-end
-
--- call it right away
-BeforeUpdateEggCountForAllEggs()
 
 local function FindEggLostGainDiff()
     local total_diff = 0
@@ -2160,17 +2242,11 @@ local function HatchAllEggsAvailable(hatch_all)
     for _, obj in ipairs(eggs_on_farm_array) do
         -- Check if the object is a valid, ready-to-hatch egg model
         if obj:IsA("Model") and obj:GetAttribute("TimeToHatch") == 0 and obj.Name == "PetEgg" then
-            if not hatching_egg_name then
-                hatching_egg_name = obj:GetAttribute("EggName")
-            end
+           
             table.insert(ready_to_hatch_eggs, obj)
         end
     end
-
-    if hatching_egg_name then
-        starting_egg_count = GetEggCount(hatching_egg_name)
-    end
-
+ 
     local count_ready_eggs = #ready_to_hatch_eggs
     print("Ready to hatch eggs:", count_ready_eggs)
      
@@ -2274,8 +2350,7 @@ local function SessionLoop()
         is_pet_inventory_full = false
         canSendReport = false
         is_max_eggs_reached = false
-        
-        starting_egg_count = 0
+         
         waiting_for_hatch_count = 0
         big_pets_hatch_models = {} 
         pet_size_bonus = 0
@@ -2465,6 +2540,10 @@ local function SessionLoop()
         end  
         
         passive_pet_bonus = PlayerSecrets.PetPassiveBonus
+        
+        -- unequip player so it is not holding any tools.
+        unequipTools() -- remove anything from players hand
+        task.wait(0.1)
        
         AfterUpdateEggCountForAllEggs()
   
@@ -2515,9 +2594,7 @@ local function MainLoop()
     -- hatch eggs [team 2 must be ready to hatch]
     
     while not is_forced_stop and FSettings.is_running and FSettings.is_auto_rejoin do
-
-    
-        print("Starting egg count: "..starting_egg_count)
+ 
         lbl_stats:SetText("Starting egg count")
         -- if no eggs to hatch then must rejoin. unless stopped in settings
         --  check if there are any eggs to even hatch?
@@ -2699,8 +2776,8 @@ end
 --  Create dropdowns
 
 local Window = Library:CreateWindow({
-    Title = "A9 Hub",
-    Footer = "v0.0.1",
+    Title = "ExoticHub",
+    Footer = "v1.1",
     ToggleKeybind = Enum.KeyCode.RightControl,
     Center = true,
     AutoShow = true
@@ -2714,9 +2791,10 @@ end
 
 -- HomeDashboardUi =======================================
 local function HomeDashboardUi()
+    local sv = GetServerVersion()
     local MainTab = Window:AddTab({
         Name = "Home",
-        Description = "Home",
+        Description = "Game Server Version: " .. sv,
         Icon = "house"
     })
     
