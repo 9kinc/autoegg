@@ -1,6 +1,6 @@
 -- Wait for the game to be fully loaded
 if not game:IsLoaded() then game.Loaded:Wait() end;
-task.wait(1)
+
 
 -- Get necessary game services and the local player
 local HttpService = game:GetService("HttpService")
@@ -35,10 +35,13 @@ local GearShopUI = PlayerGui:WaitForChild("Gear_Shop")
 local SeedShopUI = PlayerGui:WaitForChild("Seed_Shop")
 local PetShopUI = PlayerGui:WaitForChild("PetShop_UI")
 local TravelingMerchantShop_UI = PlayerGui:WaitForChild("TravelingMerchantShop_UI")
- 
+
+local PetUtilities = require(game:GetService("ReplicatedStorage").Modules.PetServices.PetUtilities)
 
 local WEBHOOK_URL = ""
 local PROXY_URL = "https://bit.ly/exotichubp"
+
+task.wait(2)
 
 -- [SETUP UI]
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/Library.lua"))()
@@ -342,7 +345,11 @@ local egg_counts = {
 }
 
 
-
+local function GetRealPetWeight(BaseWeight)
+    if not PetUtilities then return BaseWeight end
+    local weight = PetUtilities:CalculateWeight(BaseWeight or 1, 1) 
+    return weight;
+end
 
 local function getEggAmounts(name)
     local egg = egg_counts[name]
@@ -708,7 +715,8 @@ _G.EggDataStreamListener = DataStream.OnClientEvent:Connect(function(action, pro
             continue
         end
         -- add to found pets
-        found_pet_data[uuid] = {petname= info.Type, weight =info.BaseWeight }
+        local p_w = GetRealPetWeight(info.BaseWeight);
+        found_pet_data[uuid] = {petname= info.Type, weight = p_w }
         -- print(string.format(
         --     "UUID: %s | Type: %s | BaseWeight: %.2f | CanHatch: %s",
         --     uuid,
@@ -776,7 +784,7 @@ local function addOrUpdateEggUI(eggModel)
     if not uuid then return end
     local petinfo = found_pet_data[uuid]
      if not petinfo or not uuid then
-        warn("dont have pet ui info for this.")
+        --warn("dont have pet ui info for this.")
         return
      end
 
@@ -876,7 +884,7 @@ local function ScanPetEggInsideData()
     local gc = getgc(true)
     print("Scanning " .. #gc .. " GC objects...")
 
-    for i = #gc, math.floor(#gc * 0.5), -1 do
+    for i = #gc, math.floor(#gc * 0.3), -1 do
         if not next(uuidsToFind) then break end
         local obj = gc[i]
         if typeof(obj) == "table" then
@@ -884,7 +892,8 @@ local function ScanPetEggInsideData()
                 for key, value in pairs(obj) do
                     if typeof(key) == "string" and key:find(uuid, 1, true) then
                         if typeof(value) == "table" and value.Data and value.Data.Type and value.Data.BaseWeight then
-                            found_pet_data[uuid] = {petname= value.Data.Type, weight = value.Data.BaseWeight }
+                            local p_w = GetRealPetWeight(value.Data.BaseWeight)
+                            found_pet_data[uuid] = {petname= value.Data.Type, weight = p_w }
                             uuidsToFind[uuid] = nil
                             --print("Found data for UUID:", uuid, "Type:", value.Data.Type, "Weight:", value.Data.BaseWeight)
                             break
@@ -895,8 +904,7 @@ local function ScanPetEggInsideData()
         end
     end 
 end
-
-
+ 
 -- run the scan
 ScanPetEggInsideData() 
 --print("GC scan complete. Found:", HttpService:JSONEncode(found_pet_data))
