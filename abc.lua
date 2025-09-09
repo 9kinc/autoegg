@@ -30,6 +30,7 @@ local RunService = game:GetService("RunService")
  
 local DataStream = GameEvents.DataStream -- RemoteEvent
 
+local collectEvent = GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
 
 local GearShopUI = PlayerGui:WaitForChild("Gear_Shop")
 local SeedShopUI = PlayerGui:WaitForChild("Seed_Shop")
@@ -49,6 +50,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deivi
 
 -- UI Labels
 local lbl_stats
+local lbl_fruit_collect_live
 local lbl_fariystats
 local lbl_selected_team1_count
 local lbl_selected_team2_count
@@ -59,6 +61,13 @@ local MultiDropdownSellTeam
 local MultiDropdownHatchTeam
 local MultiDropdownEggReductionTeam
 local MultiDropdownEggPetSizeTeam
+
+-- save for mutations and others
+local FOtherSettings = {
+    is_collect_fruit = false,
+    mutation_whitelist = {},
+    mutation_blacklist = {},
+}
 
 
 -- Save and other settings
@@ -293,6 +302,8 @@ local tracked_bonus_egg_recovery = 0
 local tracked_bonus_egg_sell_refund = 0 
 local shops_can_function = false; -- shops can't start unless told to
 
+local backpack_full = false
+
 local player_userid = LocalPlayer.UserId
 
 if not player_userid then
@@ -343,11 +354,11 @@ local egg_counts = {
     ["Uncommon Egg"] = {current_amount = 0, new_amount = 0},
     ["Zen Egg"] = {current_amount = 0, new_amount = 0},
 }
+ 
 
-
-local function GetRealPetWeight(BaseWeight)
+local function GetRealPetWeight(BaseWeight,level)
     if not PetUtilities then return BaseWeight end
-    local weight = PetUtilities:CalculateWeight(BaseWeight or 1, 1) 
+    local weight = PetUtilities:CalculateWeight(BaseWeight or 1, level or 1) 
     return weight;
 end
 
@@ -511,12 +522,31 @@ end)
 
 --======= END Shops
 
+--=== Build mutations list safely
+local function GetAllMutations() 
+    local MutationHandler = require(game.ReplicatedStorage.Modules.MutationHandler)
+    
+    -- Get all mutations from the handler
+    local allMutations = MutationHandler.GetMutations()
+
+    -- Initialise whitelist and blacklist separately
+    FOtherSettings.mutation_whitelist = {}
+    FOtherSettings.mutation_blacklist = {}
+
+    for mutationName, _ in pairs(allMutations) do
+        FOtherSettings.mutation_whitelist[mutationName] = false
+        FOtherSettings.mutation_blacklist[mutationName] = false
+    end
+end
+
+-- Apply them
+GetAllMutations()
+task.wait(0.3)
 
 
--- Saving loading
 -- Saving and loading
 local save_fname = "a_acssave_v15.json"
-
+local save_fname_other = "a_acssave_v15_other.json"
 
 -- Saving and loading
 local function SaveData()
@@ -530,6 +560,57 @@ local function SaveData()
     else
         warn("❌ Error: Failed to encode settings to JSON. Data not saved.")
     end
+end
+
+local function SaveDataOther()
+    local success, json = pcall(function()
+        return HttpService:JSONEncode(FOtherSettings)
+    end)
+
+    if success then
+        writefile(save_fname_other, json)
+        print("✅ Data saved to " .. save_fname_other)
+    else
+        warn("❌ Error: Failed to encode other settings to JSON. Data not saved.")
+    end
+end
+
+
+local function LoadDataOther()
+    print("loading saved data")
+    if not isfile(save_fname_other) then
+        print("⚠️ No save file found, using defaults")
+        return
+    end
+
+    local json = readfile(save_fname_other)
+    if not json or json == "" then
+        print("⚠️ Save file is empty, using defaults")
+        return
+    end
+
+    local success, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+    if not success then
+        print("❌ Error decoding JSON from save file. It might be corrupted. Using defaults.")
+        return
+    end
+
+    -- The deep merge logic is now inside this function
+    local function merge(target, source)
+        for key, sourceValue in pairs(source) do
+            local targetValue = target[key]
+            if type(sourceValue) == "table" and type(targetValue) == "table" then
+                merge(targetValue, sourceValue) -- Recurse for nested tables
+            else
+                target[key] = sourceValue -- Overwrite non-table values
+            end
+        end
+        return target
+    end
+
+    -- Merge the loaded data into the default settings
+    merge(FOtherSettings, decoded)
+    print("📂 Data loaded from " .. save_fname_other)
 end
 
 local function LoadData()
@@ -571,25 +652,26 @@ end
 
 -- Call LoadData() once at the start of your script
 LoadData()
+LoadDataOther();
 task.wait(0.1);
 -- Now your script can continue, and FSettings will be correctly populated.
 print("Loading complete. Main script can proceed.")
 shops_can_function = true -- shops can now function
 
 
- 
-
 
 -- If we are here for the first time
 if FSettings.is_first_time then
     FSettings.is_first_time = false
     SaveData()
+    SaveDataOther()
     task.wait(0.1)
     LoadData();
+    LoadDataOther();
 end
 
- 
- 
+
+
 
 --  these are pets. its only used to detect if we found and rare pet.
 local rare_pets = {
@@ -663,6 +745,12 @@ end
 --workspace.Farm.Farm.Important.Objects_Physical
 local important = mFarm:FindFirstChild("Important")
 local mObjects_Physical = important and important:FindFirstChild("Objects_Physical")
+ 
+
+
+local Plants_Physical = mFarm:FindFirstChild("Important"):WaitForChild("Plants_Physical")
+if not Plants_Physical then return warn("Could not start script: Plants_Physical folder not found.") end
+
 task.wait(0.3)
 if not mObjects_Physical then
     warn("Not found mObjects_Physical")
@@ -678,6 +766,33 @@ local function unequipTools()
     task.wait(0.2)
 end
 
+
+-- Pet info
+local function GetPetDataByUUID(uuid)
+    local _petData = PetUtilities:GetPetByUUID(LocalPlayer, uuid)
+    if not _petData then
+        print("pet not found")
+        return nil
+    end
+    
+    local UUID = _petData.UUID
+    local PetData = _petData.PetData 
+    
+    local HatchedFrom = PetData.HatchedFrom -- "Fake Egg"
+    local IsFavorite = PetData.IsFavorite
+    local Boosts = PetData.Boosts
+    local Name = PetData.Name
+    local LevelProgress = PetData.LevelProgress
+    local EggName = PetData.EggName
+    local Level = PetData.Level
+    local Hunger = PetData.Hunger
+    local BaseWeight = PetData.BaseWeight
+    
+    local PetType = _petData.PetType
+    local PetAbility = _petData.PetAbility
+
+    return _petData;
+end 
 
 
 -- ================ EGG SYSTEM
@@ -939,7 +1054,7 @@ local function scanFairies()
             continue
         end
         
-        print("🔍 Fairy scanning " .. scan_amount)
+        --print("🔍 Fairy scanning " .. scan_amount)
         lbl_fariystats:SetText("🔍 Fairy scanning " .. scan_amount)
  
         for i = 1, 15 do
@@ -965,14 +1080,14 @@ local function scanFairies()
                     end
 
                     if fspam % 20 == 0 then
-                        print("⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)")
-                        lbl_fariystats:SetText("⚡ Spamming fairy")
+                        local infox ="⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)"
+                        lbl_fariystats:SetText(infox)
                     end
                     
                     task.wait(0.5)
                 end
                 scan_amount = 0
-                print("❌ Fairy disappeared after")
+                --print("❌ Fairy disappeared after")
                 lbl_fariystats:SetText("❌ Fairy disappeared after")
             end
         end
@@ -1208,6 +1323,7 @@ local function HandleNotificationX(arg)
 
     if strongContains(arg, ev_backpack_full) then
         --  backpack is full
+        backpack_full = true
         warn("Notification"..tostring(arg));
     end
 
@@ -1348,7 +1464,19 @@ local function UpdatePetData()
         if pet and pet:GetAttribute("OWNER") == LocalPlayer.Name then
             local uuidx = pet:GetAttribute("UUID")
             if uuidx then
-                petCache[uuidx] = "Active PET " ..uuidx
+                local pet_data = GetPetDataByUUID(uuidx)
+                if pet_data then 
+                    local _lvl = pet_data.PetData.Level 
+                    local basekg = pet_data.PetData.BaseWeight
+                    local _currentkg = GetRealPetWeight(basekg,_lvl)
+                    local DisplayWeight = tonumber(string.format("%.2f", _currentkg))
+                    local pname = pet_data.PetType
+                    local _petname = pname .. "[" .. DisplayWeight .. " KG] [Age " .. _lvl .. "]"
+                    petCache[uuidx] = _petname .. " " .. uuidx
+                else
+                    petCache[uuidx] = "Active PET " ..uuidx
+                end
+                
             end
         end
     end
@@ -2303,6 +2431,177 @@ local function HatchAllEggsAvailable(hatch_all)
     --  hatch function ends
 end
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+-- collects fruits
+
+local function IsMutationListAnySelected(ls)
+    for _name, _selected in pairs(FOtherSettings.mutation_whitelist) do
+        if _selected == true then
+            return true
+        end
+    end
+    
+    return false
+end
+
+
+
+
+
+
+local function fairySubmit()
+    GameEvents:WaitForChild("FairyService"):WaitForChild("SubmitFairyFountainAllPlants"):FireServer() 
+end
+
+
+local function OnBatchCollected()
+    -- any event based stuff here
+    fairySubmit()
+end
+
+
+
+
+local function mutCheck(fruit)
+    -- Check blacklist first (always overrides)
+    for name, selected in pairs(FOtherSettings.mutation_blacklist) do
+        if selected and fruit:GetAttribute(name) then
+            return false
+        end
+    end
+
+    -- Check whitelist
+    local whitelistExists = false
+    for name, selected in pairs(FOtherSettings.mutation_whitelist) do
+        if selected then
+            whitelistExists = true
+            if fruit:GetAttribute(name) then
+                return true
+            end
+        end
+    end
+
+    -- If whitelist exists but no match → block
+    if whitelistExists then
+        return false
+    end
+
+    -- No whitelist or blacklist matched → allow
+    return true
+end
+
+local function LabelUpdateCollectFruitStats(_txt)
+    if not lbl_fruit_collect_live then 
+        print(_txt)
+        return 
+    end
+    lbl_fruit_collect_live:SetText(_txt)
+end
+
+local BATCH_SIZE = 3
+local PlantNames = { ["All"] = true}  
+local waiter_count = 0
+
+-- (The rest of your backend logic remains unchanged)
+local function collectFilteredFruits()
+    local allFruitsToCollect = {}
+    local info1 = ""
+    
+    for _, plantModel in ipairs(Plants_Physical:GetChildren()) do
+        local is_valid_plant = false
+        if PlantNames["All"] then
+            is_valid_plant = true
+        else
+            --is_valid_plant = selectedPlants[plantModel.Name]
+        end
+        
+        if plantModel:IsA("Model") and is_valid_plant then
+            local fruitsFolder = plantModel:FindFirstChild("Fruits")
+            
+            if fruitsFolder then
+                for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                    local shouldCollect = mutCheck(fruit) 
+
+                    -- Weight checks per fruit TODO
+
+                    if shouldCollect then
+                        table.insert(allFruitsToCollect, fruit)
+                    else
+                        --print("cant collect this fruit: ")
+                    end
+                end
+            end
+            
+        end
+    end
+
+    if #allFruitsToCollect == 0 then
+        waiter_count = waiter_count + 1
+        info1 = "Status: No matching fruits found. Waiting..." .. waiter_count
+        LabelUpdateCollectFruitStats(info1)
+        return
+    end
+
+    info1 = string.format("Processing %d fruits...", #allFruitsToCollect)
+    LabelUpdateCollectFruitStats(info1)
+    task.wait(1)
+    
+    waiter_count = 0
+    
+    for i = 1, #allFruitsToCollect, BATCH_SIZE do
+        if not FOtherSettings.is_collect_fruit then break end
+        local batch = {}
+        for j = i, math.min(i + BATCH_SIZE - 1, #allFruitsToCollect) do
+            table.insert(batch, allFruitsToCollect[j])
+        end
+        if #batch > 0 then
+            if backpack_full then
+                task.wait(3)
+            end
+            backpack_full = false
+            info1 = string.format("Collecting batch %d/%d...", (i-1)/BATCH_SIZE + 1, math.ceil(#allFruitsToCollect/BATCH_SIZE))
+            LabelUpdateCollectFruitStats(info1)
+            collectEvent:FireServer(batch)
+            task.wait(0.2)
+            OnBatchCollected()
+        end
+    end
+    info1 = "Status: Collection cycle complete. Waiting..."
+    LabelUpdateCollectFruitStats(info1)
+end
+
+ 
+-- The main loop, controlled by FOtherSettings.is_collect_fruit
+local function collectionLoop()
+    while true do
+        task.wait(1) -- Check every second
+        -- MODIFIED: Checks the value in your FOtherSettings table
+        if FOtherSettings.is_collect_fruit and not backpack_full then
+            collectFilteredFruits()
+            task.wait(3) -- Wait after a full cycle
+        end
+    end
+end
+
+-- Start the loop
+spawn(collectionLoop)
 
 
 -- rejoins the server to restart all over again.
@@ -3524,6 +3823,146 @@ end
 
 -- Call the function to build the UI
 MEventsUi()
+
+
+
+-- Create the UI for Mutation Settings
+local function MMutationUi()
+    -- Create the new "Mutations" Tab
+    local UIMutationTab = Window:AddTab({
+        Name = "Mutations",
+        Description = "Manage automation and mutation lists",
+        Icon = "list-checks" -- Using a lucide icon
+    })
+
+    ---------------------------------------------------
+    -- ## Automation & Stats Groupboxes
+    ---------------------------------------------------
+
+    -- Automation Groupbox (Left)
+    local AutomationGroup = UIMutationTab:AddLeftGroupbox("Automation", "bot")
+    
+    AutomationGroup:AddLabel({
+        Text = "If backpack is full collection is automatically paused.",
+        DoesWrap = true
+    })
+    
+    AutomationGroup:AddToggle("collect_fruits_toggle", {
+        Text = "Collect Fruits",
+        Default = FOtherSettings.is_collect_fruit,
+        Tooltip = "Automatically collect fruits when available.",
+        Callback = function(Value)
+            FOtherSettings.is_collect_fruit = Value
+            backpack_full=false
+            SaveDataOther()
+            local status = Value and " Started " or " Stopped"
+            Library:Notify( status, 2.5)
+            
+            
+        end
+    })
+
+    -- Stats Groupbox (Right)
+    local StatsGroup = UIMutationTab:AddRightGroupbox("Live Stats", "line-chart")
+    lbl_fruit_collect_live = StatsGroup:AddLabel({
+        Text = "Status: Idle...",
+        DoesWrap = true -- Allows the text to span multiple lines if needed
+    })
+
+    ---------------------------------------------------
+    -- ## Whitelist Groupbox
+    ---------------------------------------------------
+    
+    local WhitelistGroup = UIMutationTab:AddLeftGroupbox("Whitelist Settings", "check-square")
+    WhitelistGroup:AddLabel({
+        Text = "Fruits matching the selected mutations are collected, otherwise all fruits are collected.",
+        DoesWrap = true
+    })
+    WhitelistGroup:AddDivider()
+
+    -- 1. Get the mutations into a temporary table to be sorted
+    local sortedWhitelist = {}
+    for name, isEnabled in pairs(FOtherSettings.mutation_whitelist) do
+        table.insert(sortedWhitelist, {name = name, enabled = isEnabled})
+    end
+
+    -- 2. Sort the table: enabled (true) mutations first, then alphabetically
+    table.sort(sortedWhitelist, function(a, b)
+        if a.enabled ~= b.enabled then
+            return a.enabled -- This returns true if a.enabled is true and b.enabled is false
+        end
+        return a.name < b.name -- If both are the same, sort by name
+    end)
+
+    -- 3. Loop through the sorted mutations to create the toggles
+    for _, mutationInfo in ipairs(sortedWhitelist) do
+        WhitelistGroup:AddToggle(mutationInfo.name .. "_whitelist_toggle", {
+            Text = mutationInfo.name,
+            Default = mutationInfo.enabled,
+            Tooltip = "Toggle whitelist status for " .. mutationInfo.name,
+            Callback = function(Value)
+                -- Update the value directly in the settings table
+                FOtherSettings.mutation_whitelist[mutationInfo.name] = Value
+                 SaveDataOther()
+                
+                -- Provide user feedback
+                local status = Value and " added to" or " removed from"
+                Library:Notify(mutationInfo.name .. status .. " whitelist", 1.5)
+            end
+        })
+    end
+
+    ---------------------------------------------------
+    -- ## Blacklist Groupbox
+    ---------------------------------------------------
+
+    local BlacklistGroup = UIMutationTab:AddRightGroupbox("Blacklist Settings", "x-square")
+    BlacklistGroup:AddLabel({
+        Text = "Fruits carrying selected mutations will not be gathered.",
+        DoesWrap = true
+    })
+    BlacklistGroup:AddDivider()
+
+    -- 1. Get the mutations into a temporary table
+    local sortedBlacklist = {}
+    for name, isEnabled in pairs(FOtherSettings.mutation_blacklist) do
+        table.insert(sortedBlacklist, {name = name, enabled = isEnabled})
+    end
+
+    -- 2. Sort the table: enabled (true) mutations first, then alphabetically
+    table.sort(sortedBlacklist, function(a, b)
+        if a.enabled ~= b.enabled then
+            return a.enabled
+        end
+        return a.name < b.name
+    end)
+
+    -- 3. Loop through and create the toggles
+    for _, mutationInfo in ipairs(sortedBlacklist) do
+        BlacklistGroup:AddToggle(mutationInfo.name .. "_blacklist_toggle", {
+            Text = mutationInfo.name,
+            Default = mutationInfo.enabled,
+            Tooltip = "Toggle blacklist status for " .. mutationInfo.name,
+            Risky = true, -- Makes the text red, good for blacklists
+            Callback = function(Value)
+                -- Update the value directly in the settings table
+                FOtherSettings.mutation_blacklist[mutationInfo.name] = Value
+                SaveDataOther()
+
+                -- Provide user feedback
+                local status = Value and " added to" or " removed from"
+                Library:Notify(mutationInfo.name .. status .. " blacklist", 1.5)
+            end
+        })
+    end
+end
+
+-- Call the function to build the UI
+MMutationUi()
+
+
+
+
 
 
 -- Settings
