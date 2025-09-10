@@ -27,10 +27,12 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait();
 local Backpack = LocalPlayer:WaitForChild("Backpack");
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
- 
+
+local Sell_Inventory = GameEvents.Sell_Inventory -- RemoteEvent 
 local DataStream = GameEvents.DataStream -- RemoteEvent
 
 local collectEvent = GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
+local SeedData = require(ReplicatedStorage.Data.SeedData)
 
 local GearShopUI = PlayerGui:WaitForChild("Gear_Shop")
 local SeedShopUI = PlayerGui:WaitForChild("Seed_Shop")
@@ -64,9 +66,14 @@ local MultiDropdownEggPetSizeTeam
 
 -- save for mutations and others
 local FOtherSettings = {
+    auto_sellbackpack = false,
     is_collect_fruit = false,
     mutation_whitelist = {},
     mutation_blacklist = {},
+    collection_plants = {},
+    sell_mutation_whitelist = {},
+    sell_mutation_blacklist = {},
+    sell_fruit_list = {}
 }
 
 
@@ -356,6 +363,66 @@ local egg_counts = {
 }
  
 
+
+
+local all_plants_list = {}
+
+-- Get all plants / seeds
+local function FetchAllSeedNames()
+    local xall_seed_names = {}
+    for _, seed in pairs(SeedData) do
+        if seed.SeedName then
+            local name = seed.SeedName
+              -- Removes " Seed" from the end of the name for a cleaner list
+            name = name:gsub("%s+Seed$", "")
+            table.insert(xall_seed_names, name)
+        end
+    end
+
+    for _, value in ipairs(xall_seed_names) do
+        all_plants_list[value] = false
+    end
+end
+FetchAllSeedNames()
+
+local function GetKeyValuesFromList(list)
+    local tblx = {}
+    for key, value in pairs(list) do
+        table.insert(tblx,key)
+    end
+    table.sort(tblx, function(a, b)
+        return a:lower() < b:lower()
+    end)
+    return tblx
+end
+
+
+-- Teleport function
+local function TeleportPlayerToCFrame(targetCFrame)
+    local player = LocalPlayer
+
+    -- Function to set the HumanoidRootPart CFrame
+    local function setCFrame(character)
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = targetCFrame
+        end
+    end
+
+    -- If character exists, teleport immediately
+    if player.Character then
+        setCFrame(player.Character)
+    end
+
+    -- Handle future respawns
+    player.CharacterAdded:Connect(function(character)
+        -- Wait until HumanoidRootPart exists
+        character:WaitForChild("HumanoidRootPart")
+        setCFrame(character)
+    end)
+end
+
+
 local function GetRealPetWeight(BaseWeight,level)
     if not PetUtilities then return BaseWeight end
     local weight = PetUtilities:CalculateWeight(BaseWeight or 1, level or 1) 
@@ -522,6 +589,17 @@ end)
 
 --======= END Shops
 
+local list_mutations = {}
+
+local function GetKeyMutListUsingDir(ls)
+    local _data = {}
+    for key, value in pairs(ls) do
+        table.insert(_data,key)
+    end
+    
+    return _data
+end
+
 --=== Build mutations list safely
 local function GetAllMutations() 
     local MutationHandler = require(game.ReplicatedStorage.Modules.MutationHandler)
@@ -534,8 +612,10 @@ local function GetAllMutations()
     FOtherSettings.mutation_blacklist = {}
 
     for mutationName, _ in pairs(allMutations) do
+      
         FOtherSettings.mutation_whitelist[mutationName] = false
         FOtherSettings.mutation_blacklist[mutationName] = false
+        list_mutations[mutationName] = false
     end
 end
 
@@ -1071,13 +1151,13 @@ local function scanFairies()
                     fspam = fspam + 1
                     total_spams = total_spams + 1
 
-                    --fireproximityprompt(prompt)
+                    fireproximityprompt(prompt)
                     -- fire 5 times
-                    for j = 1, 2 do
-                        task.spawn(function()
-                            spProxi(prompt)
-                        end)
-                    end
+                    -- for j = 1, 2 do
+                    --     task.spawn(function()
+                    --         spProxi(prompt)
+                    --     end)
+                    -- end
 
                     if fspam % 20 == 0 then
                         local infox ="⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)"
@@ -2434,36 +2514,7 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
  
-
-
--- collects fruits
-
-local function IsMutationListAnySelected(ls)
-    for _name, _selected in pairs(FOtherSettings.mutation_whitelist) do
-        if _selected == true then
-            return true
-        end
-    end
-    
-    return false
-end
-
-
-
-
 
 
 local function fairySubmit()
@@ -2473,9 +2524,103 @@ end
 
 local function OnBatchCollected()
     -- any event based stuff here
-    fairySubmit()
+    --
+    if FSettings.is_fairy_scanner_active then
+        fairySubmit()
+    end
 end
 
+
+local function MakeFruitsFav(list)
+    for _, item in ipairs(list) do
+        FavItem:FireServer(item)
+    end
+end
+
+
+local function GetAllFruitsToSell()
+    print("get fruits")
+    local fav_list = {}
+    local sell_candidates  = {} 
+    
+    -- Find all fruits to fruit
+    for _, item in ipairs(Backpack:GetChildren()) do
+        if item:IsA("Tool") and item:GetAttribute("b") == "j" and item:GetAttribute("d") == false then
+            local fname = item:GetAttribute("f");
+            local fruit_uuid = item:GetAttribute("c");
+            if next(FOtherSettings.sell_fruit_list) then
+                -- if list is not empty then add these fruits to the list as they will be sold.
+                if FOtherSettings.sell_fruit_list[fname] then
+                    table.insert(sell_candidates,item)
+                else
+                    table.insert(fav_list,item)
+                end
+            else
+                table.insert(sell_candidates,item)
+            end
+        end 
+    end
+    
+    -- this loop checks mutation fiilters
+    for _, item in ipairs(sell_candidates) do
+        if item:IsA("Tool") and item:GetAttribute("b") == "j" and item:GetAttribute("d") == false then
+            -- found a fruit, thats not fav
+            local fname = item:GetAttribute("f");
+            local fruit_uuid = item:GetAttribute("c");
+            -- don't sell this these frutis.
+            local prevent_sell = false
+
+            for _name, _val in pairs(FOtherSettings.sell_mutation_whitelist) do
+                if item:GetAttribute(_name) and _val then
+                    -- Sell anything match here
+                    prevent_sell = false 
+                    break
+                end
+            end
+            for _name, _val in pairs(FOtherSettings.sell_mutation_blacklist) do
+                --- prevent sell of these
+                if item:GetAttribute(_name) and _val then
+                    -- Fav everything match here, this is prevent
+                    prevent_sell = true
+                    break
+                end
+            end
+            
+            
+            if prevent_sell then
+                -- add or prevent
+                table.insert(fav_list,item)
+            end
+            
+            --table.insert(fruit_ls,item)
+            --print("Fruit Name: ", fname)
+        end
+    end
+    
+    task.wait(0.4)
+    print("Make fav")
+    MakeFruitsFav(fav_list) -- fav fruits
+    task.wait(1.2)
+    print("Selling all fruits...")
+    
+    -- teleport
+    local hrp = Character:WaitForChild("HumanoidRootPart")
+    -- Save the current CFrame
+    local originalCFrame = hrp.CFrame
+    local targetCFrame = CFrame.new( 87.0313492, 2.99999976, 0.724588692)
+    TeleportPlayerToCFrame(targetCFrame)
+    task.wait(0.2)
+    Sell_Inventory:FireServer()
+    -- use sell list here
+    task.wait(1)
+    MakeFruitsFav(fav_list) -- call again to unfav fruits after selling
+    task.wait(0.5)
+    -- tp back
+    TeleportPlayerToCFrame(originalCFrame)
+    print("Unfav")
+    backpack_full = false
+end
+ 
 
 
 
@@ -2515,9 +2660,17 @@ local function LabelUpdateCollectFruitStats(_txt)
     lbl_fruit_collect_live:SetText(_txt)
 end
 
-local BATCH_SIZE = 3
-local PlantNames = { ["All"] = true}  
+local BATCH_SIZE = 3 
 local waiter_count = 0
+
+local function IsAnyPlantsSelected()
+    for _name, _val in pairs(FOtherSettings.collection_plants) do
+        if _val then
+            return true 
+        end
+    end
+    return false
+end
 
 -- (The rest of your backend logic remains unchanged)
 local function collectFilteredFruits()
@@ -2526,15 +2679,19 @@ local function collectFilteredFruits()
     
     for _, plantModel in ipairs(Plants_Physical:GetChildren()) do
         local is_valid_plant = false
-        if PlantNames["All"] then
-            is_valid_plant = true
+        local any_selected = IsAnyPlantsSelected()
+        if any_selected then
+            -- check what plant
+            --warn("Check plant: " , plantModel.Name)
+            is_valid_plant = FOtherSettings.collection_plants[plantModel.Name]
         else
-            --is_valid_plant = selectedPlants[plantModel.Name]
+            -- no plant is selected. so pick any
+            is_valid_plant = true
         end
-        
+
         if plantModel:IsA("Model") and is_valid_plant then
             local fruitsFolder = plantModel:FindFirstChild("Fruits")
-            
+
             if fruitsFolder then
                 for _, fruit in ipairs(fruitsFolder:GetChildren()) do
                     local shouldCollect = mutCheck(fruit) 
@@ -2548,7 +2705,6 @@ local function collectFilteredFruits()
                     end
                 end
             end
-            
         end
     end
 
@@ -2573,9 +2729,8 @@ local function collectFilteredFruits()
         end
         if #batch > 0 then
             if backpack_full then
-                task.wait(3)
-            end
-            backpack_full = false
+                break
+            end 
             info1 = string.format("Collecting batch %d/%d...", (i-1)/BATCH_SIZE + 1, math.ceil(#allFruitsToCollect/BATCH_SIZE))
             LabelUpdateCollectFruitStats(info1)
             collectEvent:FireServer(batch)
@@ -2593,6 +2748,14 @@ local function collectionLoop()
     while true do
         task.wait(1) -- Check every second
         -- MODIFIED: Checks the value in your FOtherSettings table
+        --print("backpack: " , backpack_full)
+        --print("auto_sellbackpack: " , FOtherSettings.auto_sellbackpack)
+        if backpack_full and FOtherSettings.auto_sellbackpack then
+            task.wait()
+            GetAllFruitsToSell() 
+            task.wait(1)
+        end
+        
         if FOtherSettings.is_collect_fruit and not backpack_full then
             collectFilteredFruits()
             task.wait(3) -- Wait after a full cycle
@@ -3776,15 +3939,7 @@ end
 
 
 
-
-
-
-
---[[
-  At the top of your script (or somewhere accessible), declare a variable
-  to hold the stats label object. This allows you to update it later.
-]]
-
+ 
 
 
 -- Events UI Function
@@ -3830,8 +3985,8 @@ MEventsUi()
 local function MMutationUi()
     -- Create the new "Mutations" Tab
     local UIMutationTab = Window:AddTab({
-        Name = "Mutations",
-        Description = "Manage automation and mutation lists",
+        Name = "Fruit Collection",
+        Description = "Collect fruits with mutation lists",
         Icon = "list-checks" -- Using a lucide icon
     })
 
@@ -3847,13 +4002,34 @@ local function MMutationUi()
         DoesWrap = true
     })
     
+     
+ 
+    local SeedDropdown = AutomationGroup:AddDropdown("SeedSelector", {
+        Values = {},
+        Default = {},
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Changed = function(newSelection)
+            FOtherSettings.collection_plants = {}
+            for key, value in pairs(newSelection) do
+                FOtherSettings.collection_plants[key] = value
+            end
+              
+            SaveDataOther()
+        end
+    })
+    
+    SeedDropdown:SetValues(GetKeyValuesFromList(all_plants_list))
+    SeedDropdown:SetValue(FOtherSettings.collection_plants)
+        
     AutomationGroup:AddToggle("collect_fruits_toggle", {
         Text = "Collect Fruits",
         Default = FOtherSettings.is_collect_fruit,
         Tooltip = "Automatically collect fruits when available.",
         Callback = function(Value)
             FOtherSettings.is_collect_fruit = Value
-            backpack_full=false
+            --backpack_full=false
             SaveDataOther()
             local status = Value and " Started " or " Stopped"
             Library:Notify( status, 2.5)
@@ -3959,6 +4135,142 @@ end
 
 -- Call the function to build the UI
 MMutationUi()
+
+
+
+
+
+
+
+
+
+
+
+-- Selling UI
+
+
+-- Create the UI for Selling backpack etc
+local function MSellUI()
+    -- Create the new "Mutations" Tab
+    local UISellTab = Window:AddTab({
+        Name = "Selling",
+        Description = "Sell fruits and more",
+        Icon = "store" -- Using a lucide icon
+    })
+
+    ---------------------------------------------------
+    -- ## GRoupboxes
+    ---------------------------------------------------
+
+    local AutomationGroup = UISellTab:AddLeftGroupbox("Backpack", "briefcase-business")
+
+    AutomationGroup:AddLabel({
+        Text = "Select how you want to sell from your backpack",
+        DoesWrap = true
+    })
+
+    AutomationGroup:AddToggle("sell_backpack_toggle", {
+        Text = "Auto Sell Backpack",
+        Default = FOtherSettings.auto_sellbackpack,
+        Tooltip = "Automatically sells backpack when full",
+        Callback = function(Value)
+            FOtherSettings.auto_sellbackpack = Value
+            --backpack_full = false
+            SaveDataOther()
+            local status = Value and " Started " or " Stopped"
+            Library:Notify(status, 2.5)
+        end
+    })
+
+
+
+    local sellFruitList = AutomationGroup:AddDropdown("sellFruitList", {
+        Values = {},
+        Default = {},
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "🍌 Sell Fruti",
+        Tooltip = "Select fruit to sell. if nothing is selected it will sell all.",
+        Changed = function(newSelection)
+            FOtherSettings.sell_fruit_list = {}
+            for key, value in pairs(newSelection) do
+                FOtherSettings.sell_fruit_list[key] = value
+            end
+
+            SaveDataOther()
+        end
+    })
+
+    local sellWhiteListMut = AutomationGroup:AddDropdown("sellWhiteListMut", {
+        Values = {},
+        Default = {},
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "✅ Sell Selected Mutations",
+        Tooltip = "Sells any mutations selected. if nothing is selected it will sell all.",
+        Changed = function(newSelection)
+            FOtherSettings.sell_mutation_whitelist = {}
+            for key, value in pairs(newSelection) do
+                FOtherSettings.sell_mutation_whitelist[key] = value
+            end
+
+            SaveDataOther()
+        end
+    })
+
+    local sellBlackListMut = AutomationGroup:AddDropdown("sellBlackListMut", {
+        Values = {},
+        Default = {},
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "❌ Don't Sell Selected Mutations",
+        Tooltip = "Won't sell any selected mutations. if nothing is selected it will sell all.",
+        Changed = function(newSelection)
+            FOtherSettings.sell_mutation_blacklist = {}
+            for key, value in pairs(newSelection) do
+                FOtherSettings.sell_mutation_blacklist[key] = value
+            end
+              
+            SaveDataOther()
+        end
+    })
+    
+    sellFruitList:SetValues(GetKeyMutListUsingDir(all_plants_list))
+    sellFruitList:SetValue(FOtherSettings.sell_fruit_list);
+    
+    sellWhiteListMut:SetValues(GetKeyMutListUsingDir(list_mutations))
+    sellWhiteListMut:SetValue(FOtherSettings.sell_mutation_whitelist)
+    
+    sellBlackListMut:SetValues(GetKeyMutListUsingDir(list_mutations))
+    sellBlackListMut:SetValue(FOtherSettings.sell_mutation_blacklist)
+         
+end
+
+-- Call the function to build the UI
+MSellUI()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
