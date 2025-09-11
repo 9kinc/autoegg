@@ -30,6 +30,7 @@ local RunService = game:GetService("RunService")
 
 local Sell_Inventory = GameEvents.Sell_Inventory -- RemoteEvent 
 local DataStream = GameEvents.DataStream -- RemoteEvent
+local PlantRemote = GameEvents:WaitForChild("Plant_RE")
 
 local collectEvent = GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
 local SeedData = require(ReplicatedStorage.Data.SeedData)
@@ -40,6 +41,8 @@ local PetShopUI = PlayerGui:WaitForChild("PetShop_UI")
 local TravelingMerchantShop_UI = PlayerGui:WaitForChild("TravelingMerchantShop_UI")
 
 local PetUtilities = require(game:GetService("ReplicatedStorage").Modules.PetServices.PetUtilities)
+
+local player_humanoid = Character:FindFirstChildOfClass("Humanoid")
 
 local WEBHOOK_URL = ""
 local PROXY_URL = "https://bit.ly/exotichubp"
@@ -54,6 +57,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deivi
 local lbl_stats
 local lbl_fruit_collect_live
 local lbl_fariystats
+local lbl_ascenstats
 local lbl_selected_team1_count
 local lbl_selected_team2_count
 local lbl_selected_team3_count
@@ -66,6 +70,8 @@ local MultiDropdownEggPetSizeTeam
 
 -- save for mutations and others
 local FOtherSettings = {
+    web_api_key= "",
+    auto_ascension = false,
     auto_sellbackpack = false,
     is_collect_fruit = false,
     mutation_whitelist = {},
@@ -271,21 +277,13 @@ local FSettings = {
 
 -- Logs, contains all errors related logs, when something fails and saves and loads . maximum 100 log 
 local logs = {}
-
-local eggs_to_hatch_array = {
-    ["Common Egg"] = true,
-    ["Zen Egg"] = true,
-    ["Primal Egg"] = true,
-    ["Rare Summer Egg"] = true,
-    ["Dinosaur Egg"] = true,
-    ["Bug Egg"] = true,
-    ["Paradise Egg"] = true,
-    ["Gourmet Egg"] = true,
-    ["Premium Night Egg"] = true,
-}
-
-local web_api_key = ""
+  
 local user_s_key = ""
+
+local garden_coins = 0
+local honey_coins = 0
+local sleep_ascend = 30
+local is_garden_full_seed = false
 
 -- pet data for esp
 local found_pet_data = {}
@@ -1346,6 +1344,7 @@ local ev_max_eggs_reached = "max pet eggs"
 local ev_lucky_sell = "from selling your pet" --  when seal gives egg back
 local ev_hatch_lucky = "egg has been recovered" -- when koi repaints
 local ev_pet_inventoryfull ="you have reached the limit of pets"
+local ev_max_garden_seeds = "Your garden is full"
  
 
 -- All words must exist, the order doesn't matter
@@ -1382,6 +1381,12 @@ end
 
 local function HandleNotificationX(arg)
     -- This listens to any Notifications
+    
+    if strongContains(arg, ev_max_garden_seeds) then
+        -- -- max seeds limit
+        warn("Notification"..tostring(arg));
+        is_garden_full_seed = true; 
+    end
     
     if strongContains(arg, ev_max_eggs_reached) then
         -- max eggs on farm
@@ -1799,6 +1804,7 @@ local function HatchReport()
         serverversion = serverv,
         username = hatch_player_uname,
         userid = player_userid,
+        cp_api = FOtherSettings.web_api_key,
         buff_seal = _sellbuff,
         buff_koi = _hatchbuff,
         buff_bron = pet_size_bonus,
@@ -2052,6 +2058,47 @@ local function GetCountEggsOnFarm()
     return f_count
 end
 
+-- seed placements
+local function getGridSeedPositions(center)
+    local positions = {}
+    
+    -- ## Tweak these values to change the shape ##
+    local OUTER_WIDTH = 70   -- The total width of the placement area.
+    local OUTER_DEPTH = 50   -- The total depth of the placement area.
+    local INNER_WIDTH = 14   -- The width of the empty "walk area" in the middle.
+    local INNER_DEPTH = 60   -- The depth of the empty "walk area" in the middle.
+    local SPACING = 1.5      -- The distance between each spot, smaller for denser packing.
+    
+       -- ## Tweak these values to change the shape ##
+    -- local OUTER_WIDTH = 70  -- The total width of the placement area.
+    -- local OUTER_DEPTH = 50  -- The total depth of the placement area.
+    -- local INNER_WIDTH = 14  -- The width of the empty "walk area" in the middle.
+    -- local INNER_DEPTH = 60  -- The depth of the empty "walk area" in the middle.
+    -- local SPACING = 5       -- The distance between each spot.
+
+    -- Calculate boundaries from the center point
+    local halfOuterW = OUTER_WIDTH / 2
+    local halfOuterD = OUTER_DEPTH / 2
+    local halfInnerW = INNER_WIDTH / 2
+    local halfInnerD = INNER_DEPTH / 2
+
+    -- Generate points in a grid pattern
+    for x = center.X - halfOuterW, center.X + halfOuterW, SPACING do
+        for z = center.Z - halfOuterD, center.Z + halfOuterD, SPACING do
+            
+            -- This condition ensures we only add points OUTSIDE the inner walk area
+            if math.abs(x - center.X) > halfInnerW or math.abs(z - center.Z) > halfInnerD then
+                table.insert(positions, Vector3.new(x, center.Y, z))
+            end
+            
+        end
+    end
+
+    return positions
+end
+
+
+ 
 
 -- This function generates the list of possible egg locations.
 local function getPredefinedEggPositions(center)
@@ -2086,6 +2133,403 @@ local function getPredefinedEggPositions(center)
 end
 
  
+
+
+
+
+
+
+
+
+
+
+
+--============================= Ascension
+--------------------------------------------------------------
+
+local function UpdateAscenStats(_txt)
+    if not lbl_ascenstats then return end
+    lbl_ascenstats:SetText(_txt)
+end
+
+local function FetchGardenCoins()
+    local success, value = pcall(function()
+        return PlayerGui.GardenCoinCurrency_UI.Frame.TextLabel1.val.Value
+    end)
+
+    garden_coins = tonumber(success and value) or 0
+end
+
+
+
+local function FetchHoneyCoins()
+    local success, value = pcall(function()
+        return PlayerGui.Honey_UI.Frame.TextLabel1.val.Value
+    end)
+
+    honey_coins = tonumber(success and value) or 0
+end
+
+
+
+if not _G.CoinFetchTask or not _G.CoinFetchTask.Running then
+    _G.CoinFetchTask = task.spawn(function()
+        while true do
+            task.wait(30)
+            local success, err = pcall(function()
+                FetchHoneyCoins()
+                FetchGardenCoins()
+            end)
+            if not success then
+                warn("⚠️ Coin fetch failed: ", err)
+            end
+        end
+    end)
+end
+
+
+
+local function CollectFruitUsingNameAndMut(plantName, requiredMutations)
+    local fruitsToCollect = {}
+
+    for _, plantModel in ipairs(Plants_Physical:GetChildren()) do
+        if plantModel:IsA("Model") and (not plantName or plantModel.Name == plantName) then
+            local is_fav = plantModel:GetAttribute("Favorited")
+            if is_fav then
+                continue
+            end
+            local fruitsFolder = plantModel:FindFirstChild("Fruits")
+            if fruitsFolder then
+                for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                    local is_fav1 = fruit:GetAttribute("Favorited")
+                    if is_fav1 then
+                        continue
+                    end
+                    local hasAllMutations = true
+                    for mutName in pairs(requiredMutations) do
+                        if not fruit:GetAttribute(mutName) then
+                            hasAllMutations = false
+                            break
+                        end
+                    end
+
+                    if hasAllMutations then
+                        table.insert(fruitsToCollect, fruit)
+                        break
+                    end
+
+                end
+            else
+                -- this plant is fruit itself
+                local hasAllMutations = true
+                for mutName in pairs(requiredMutations) do
+                    if not plantModel:GetAttribute(mutName) then
+                        hasAllMutations = false
+                        break
+                    end
+                end
+
+                if hasAllMutations then
+                    table.insert(fruitsToCollect, plantModel)
+                end
+            end
+        end
+    end
+
+    if #fruitsToCollect > 0 then
+        collectEvent:FireServer(fruitsToCollect)
+        --print("🍉 Collected", #fruitsToCollect, "fruit(s)")
+        return true
+    end
+    
+    --warn("Unable to collect this fruit. it does not match any mutations")
+    return false
+end
+
+
+-- Returns true if any plant with the given name exists
+local function HasPlantByName(plantName)
+    for _, plantModel in ipairs(Plants_Physical:GetChildren()) do
+        if plantModel:IsA("Model") and plantModel.Name == plantName then
+            local is_fav = plantModel:GetAttribute("Favorited")
+            if is_fav then
+                --warn("This fruit is fav");
+                continue
+            end
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to plant a seed safely
+local function PlantSeed(position, seedName)
+    local success, err = pcall(function() 
+        PlantRemote:FireServer(position,seedName)
+    end)
+end
+
+
+local function CharEquipTool(tool)
+    if tool and tool:IsA("Tool") then
+        tool.Parent = Character  -- equip the tool
+        --print("✅ Equipped tool:", tool.Name)
+        return true
+    else
+       -- warn("⚠️ Not a valid tool instance")
+        return false
+    end
+end
+ 
+
+local function FindFruitInBackpack(fruitname, mutations)
+    local function hasAllMutations(item)
+        for mutationName in pairs(mutations) do
+            if not item:GetAttribute(mutationName) then
+                return false -- missing one mutation → fail
+            end
+        end
+        return true -- all mutations present
+    end
+
+    -- Check Backpack
+    for _, item in ipairs(Backpack:GetChildren()) do
+        if item:IsA("Tool") and item:GetAttribute("b") == "j" then
+            local fname = item:GetAttribute("f")
+            if fname == fruitname and hasAllMutations(item) then
+                return item
+            end
+        end
+    end
+
+    -- Check Character (holding)
+    for _, item in ipairs(Character:GetChildren()) do
+        if item:IsA("Tool") and item:GetAttribute("b") == "j" then
+            local fname = item:GetAttribute("f")
+            if fname == fruitname and hasAllMutations(item) then
+                return item
+            end
+        end
+    end
+
+    return nil -- no matching fruit found
+end
+
+local function FindFruitSeedInBackpack(fruitname)
+    for _, item in ipairs(Backpack:GetChildren()) do 
+        if item:IsA("Tool") and item:GetAttribute("b") == "n" then
+            local is_fav = item:GetAttribute("d")
+            local f_uuid = item:GetAttribute("c")
+            local fname = item:GetAttribute("f") -- fruit name
+            local Variant = item:GetAttribute("Variant");
+            local Seed = item:GetAttribute("Seed") -- seed name
+            local Quantity = item:GetAttribute("Quantity")
+            
+            if fname == fruitname or Seed == fruitname then
+                return item;
+            end
+        end
+    end
+    
+    -- player maybe holding this tool check it
+    -- Then check Character (player might be holding it)
+    for _, item in ipairs(Character:GetChildren()) do
+        if item:IsA("Tool") and item:GetAttribute("b") == "n" then
+            local fname = item:GetAttribute("f")
+            local Seed = item:GetAttribute("Seed")
+            
+            if fname == fruitname or Seed == fruitname then
+                return item
+            end
+        end
+    end
+    
+    return nil
+end
+
+
+local function PlantRequiredFruitsForAscension(fruit_name) 
+    local seed_tool = FindFruitSeedInBackpack(fruit_name)
+    if seed_tool then
+        --print("WE found a seed we can use to plant this: ")
+        -- equip it
+        CharEquipTool(seed_tool)
+
+        local center = mFarm.Center_Point.Position
+        local availablePositions = getGridSeedPositions(center)
+
+        for i = #availablePositions, 2, -1 do
+            local j = math.random(i)
+            availablePositions[i], availablePositions[j] = availablePositions[j], availablePositions[i]
+        end
+        
+        is_garden_full_seed = false
+
+        -- Loop to place the eggs
+        local target_egg_am = 40
+        for i = 1, target_egg_am do
+            -- cant place anymore seeds
+            if is_garden_full_seed then 
+                task.sleep(10)
+                break
+            end
+            
+            if #availablePositions == 0 then
+                --warn("No more predefined placement spots available.") 
+                break
+            end
+
+            -- Get the position for this specific egg.
+            local placePos = table.remove(availablePositions)
+
+            -- try to place the seed.
+            --print("Placed seed: ");
+            PlantSeed(placePos,fruit_name)
+
+            task.wait(0.5);
+            -- recheck if we now have this
+            if HasPlantByName(fruit_name) then
+                --print("Fruit Planted successully!")
+                if not player_humanoid then return end
+                player_humanoid:UnequipTools()
+                task.wait(0.2)
+                break
+            else
+                --print("Failed to place trying again.")
+            end
+
+        end
+
+    else
+       -- warn("No seed found for " .. fruit_name )
+    end
+     
+end
+
+
+local function AutoAscension()
+    local fruit_name
+    local mutations_fs = {}
+    local can_ascend = false
+    local RebirthConfirmation = PlayerGui.RebirthConfirmation
+
+    -- what mutation the fruit needs.
+    --  this can be array , e.g WindStruct,Sun
+    local success1, value1 = pcall(function()
+        return RebirthConfirmation.Frame.Display.RebirthDetails.RequiredItemTemplate.ItemMutations.ContentText
+    end)
+    
+    -- Fruit name 
+    local success2, value2 = pcall(function()
+        return RebirthConfirmation.Frame.Display.RebirthDetails.RequiredItemTemplate.ItemName.ContentText
+    end)
+    
+    if success2 and value2 then
+        fruit_name = value2
+    end
+    
+    local success3, value3 = pcall(function()
+        return RebirthConfirmation.Frame.Frame.AscensionTimer.ContentText
+    end)
+    
+     -- Normalize mutations into dictionary for fast lookup
+    if success1 and value1 and value1 ~= "" then
+        for mut in string.gmatch(value1, "([^,]+)") do
+            mutations_fs[mut:match("^%s*(.-)%s*$")] = true -- trim spaces
+        end
+    end
+    
+    -- Check if ascension is ready
+    if success3 and value3 and value3 == "Next Ascension in 4:30" then
+        can_ascend = true
+    end
+    
+    --fruit_name = "Carrot" -- testing
+    
+    if can_ascend then
+        -- check if we have this fruit in the backpack or are we holding it
+        local requried_tool = FindFruitInBackpack(fruit_name, mutations_fs)
+        if requried_tool then
+            -- we have this fruit in the backpack.
+            -- claim rewards
+            CharEquipTool(requried_tool)
+            game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuyRebirth"):FireServer()
+            print("Ascension Completed")
+            UpdateAscenStats("✅ Ascension Completed")
+            task.wait(5)
+        else
+            if HasPlantByName(fruit_name) then
+                --print("We have this plant: " .. fruit_name)
+                -- collect fruit matching what is required, ignores fav fruit.
+                CollectFruitUsingNameAndMut(fruit_name, mutations_fs);
+            else
+                --warn("Dont have this plant, place one.")
+                PlantRequiredFruitsForAscension(fruit_name)
+            end
+        end
+    else
+        UpdateAscenStats("❌ Not ready for Ascension")
+        task.wait(3)
+    end
+
+
+    -- print("AscensionTimer: ", value3)
+    -- print("Fruit name: ", fruit_name)
+    -- print("Mutations: ", HttpService:JSONEncode(mutations_fs))
+    -- print("Can Ascend: " , can_ascend)
+
+end
+ 
+--  task that runs Ascension
+if not _G.AutoAscensionTask or not _G.AutoAscensionTask.Running then
+    _G.AutoAscensionTask = task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if not FOtherSettings.auto_ascension then
+                continue
+            end 
+            UpdateAscenStats("⚙️ Auto Ascension is running ")
+            task.wait(sleep_ascend)
+            time_passed_ascen = 0
+            local success, err = pcall(AutoAscension)
+            if not success then
+                warn("⚠️ AutoAscension failed: ", err)
+            end
+        end
+    end)
+end
+
+
+
+
+
+--============================= END Ascension
+--------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 local function placeMissingEggs(myFarm)
     print("Starting to place eggs...")
@@ -3973,6 +4417,36 @@ local function MEventsUi()
         end
     })
     -- You can add other event-related toggles here in the future
+    
+    
+    
+    local GroupBoxAutoAscension = UIEventsTab:AddRightGroupbox("AutoAscension", "calendar-sync")
+    GroupBoxAutoAscension:AddLabel({
+        Text = "Auto Ascension: Plants, collects fruits, and claims Ascension for you.", 
+        DoesWrap = true
+    })
+    
+    lbl_ascenstats = GroupBoxAutoAscension:AddLabel({
+        Text = "Current status", 
+        DoesWrap = true
+    })
+    
+    if FOtherSettings.auto_ascension then
+        UpdateAscenStats("🟢 Ascension is active")
+    else
+        UpdateAscenStats("❌ Ascension not active")
+    end
+     
+    GroupBoxAutoAscension:AddToggle("toogleAutoA", {
+        Text = "Auto Ascension",
+        Default = FOtherSettings.auto_ascension,
+        Tooltip = "Scans for and collects from Fairies",
+        Callback = function(Value)
+            FOtherSettings.auto_ascension = Value
+            SaveDataOther()
+            Library:Notify("Auto Ascension " .. (Value and "Enabled" or "Disabled"), 1)
+        end
+    })
  
 end
 
@@ -4277,8 +4751,82 @@ MSellUI()
 
 
 
+--=========== Shops
+
+-- Shops
+function MShopUi()
+    local UIShopTab = Window:AddTab({
+        Name = "Shops",
+        Description = "Shops",
+        Icon = "store"
+    })
+
+    local GroupBoxWebhook = UIShopTab:AddLeftGroupbox("Shops", "link")
+    local GroupBoxOtherSettings = UIShopTab:AddRightGroupbox("Shop Settings", "settings-2")
+ 
+    -- info
+     local lblinfo = GroupBoxWebhook:AddLabel({
+        Text = "Buy shops? by default all shops will be purchased when active",
+        DoesWrap = true
+    })
+    
+    
+    --======== Shops buttons 
+    local btnShopGear = GroupBoxWebhook:AddToggle("btnShopGear", {
+        Text = "Buy Gear Shop",
+        Default = FSettings.buy_gearshop,
+        Tooltip = "Enable Gear Shop",
+        Callback = function(Value)
+            FSettings.buy_gearshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnShopSeed = GroupBoxWebhook:AddToggle("btnShopSeed", {
+        Text = "Buy Seed Shop",
+        Default = FSettings.buy_seedshop,
+        Tooltip = "Enable Seed Shop",
+        Callback = function(Value)
+            FSettings.buy_seedshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnShopEgg = GroupBoxWebhook:AddToggle("btnShopEgg", {
+        Text = "Buy Egg Shop",
+        Default = FSettings.buy_eggshop,
+        Tooltip = "Enable Egg Shop",
+        Callback = function(Value)
+            FSettings.buy_eggshop = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+    
+    local btnMerShop = GroupBoxWebhook:AddToggle("btnMerShop", {
+        Text = "Buy Merchant Shop",
+        Default = FSettings.buy_merchant,
+        Tooltip = "Buy All Merchant Shops",
+        Callback = function(Value)
+            FSettings.buy_merchant = Value 
+            SaveData()
+            Library:Notify("Updated", 1)
+        end
+    })
+
+
+end
+
+MShopUi();
+
+
+
+
+
 -- Settings
-local function SettingsUi()
+function SettingsUi()
     local UISettingsTab = Window:AddTab({
         Name = "Settings",
         Description = "Settings",
@@ -4287,6 +4835,28 @@ local function SettingsUi()
 
     local GroupBoxWebhook = UISettingsTab:AddLeftGroupbox("Webhook URL", "link")
     local GroupBoxOtherSettings = UISettingsTab:AddRightGroupbox("Other Settings", "settings-2")
+    
+    local GroupBoxApiSettings = UISettingsTab:AddRightGroupbox("Web API", "webhook")
+    
+    GroupBoxApiSettings:AddLabel({
+        Text = "🌐 Log in to the website to get your API key. 🔑 Enter it here to sync your data 📊.",
+        DoesWrap = true
+    })
+    
+    GroupBoxApiSettings:AddInput("inputApiWeb", {
+    Text = "Web API KEY",
+    Default = FOtherSettings.web_api_key,
+    Numeric = false,
+    ClearTextOnFocus= false,
+    Finished = false, -- Only calls callback when you press enter
+    Placeholder = "API Key",
+        Callback = function(Value)
+            FOtherSettings.web_api_key = Value
+            SaveDataOther()
+            Library:Notify("Web API Key Updated", 3)
+        end
+    })
+    
  
     -- webhook url
      local lbl_webhook_info = GroupBoxWebhook:AddLabel({
@@ -4399,79 +4969,6 @@ local function SettingsUi()
 end
 
 SettingsUi()
-
-
-
---=========== Shops
-
--- Shops
-local function MShopUi()
-    local UIShopTab = Window:AddTab({
-        Name = "Shops",
-        Description = "Shops",
-        Icon = "store"
-    })
-
-    local GroupBoxWebhook = UIShopTab:AddLeftGroupbox("Shops", "link")
-    local GroupBoxOtherSettings = UIShopTab:AddRightGroupbox("Shop Settings", "settings-2")
- 
-    -- info
-     local lblinfo = GroupBoxWebhook:AddLabel({
-        Text = "Buy shops? by default all shops will be purchased when active",
-        DoesWrap = true
-    })
-    
-    
-    --======== Shops buttons 
-    local btnShopGear = GroupBoxWebhook:AddToggle("btnShopGear", {
-        Text = "Buy Gear Shop",
-        Default = FSettings.buy_gearshop,
-        Tooltip = "Enable Gear Shop",
-        Callback = function(Value)
-            FSettings.buy_gearshop = Value 
-            SaveData()
-            Library:Notify("Updated", 1)
-        end
-    })
-    
-    local btnShopSeed = GroupBoxWebhook:AddToggle("btnShopSeed", {
-        Text = "Buy Seed Shop",
-        Default = FSettings.buy_seedshop,
-        Tooltip = "Enable Seed Shop",
-        Callback = function(Value)
-            FSettings.buy_seedshop = Value 
-            SaveData()
-            Library:Notify("Updated", 1)
-        end
-    })
-    
-    local btnShopEgg = GroupBoxWebhook:AddToggle("btnShopEgg", {
-        Text = "Buy Egg Shop",
-        Default = FSettings.buy_eggshop,
-        Tooltip = "Enable Egg Shop",
-        Callback = function(Value)
-            FSettings.buy_eggshop = Value 
-            SaveData()
-            Library:Notify("Updated", 1)
-        end
-    })
-    
-    local btnMerShop = GroupBoxWebhook:AddToggle("btnMerShop", {
-        Text = "Buy Merchant Shop",
-        Default = FSettings.buy_merchant,
-        Tooltip = "Buy All Merchant Shops",
-        Callback = function(Value)
-            FSettings.buy_merchant = Value 
-            SaveData()
-            Library:Notify("Updated", 1)
-        end
-    })
-
-
-end
-
-MShopUi();
-
 
 
 
