@@ -2239,9 +2239,10 @@ local function CollectFruitUsingNameAndMut(plantName, requiredMutations)
     if #fruitsToCollect > 0 then
         collectEvent:FireServer(fruitsToCollect)
         --print("🍉 Collected", #fruitsToCollect, "fruit(s)")
+        sleep_ascend = 2 -- lower time for faster submit
         return true
     end
-    
+    sleep_ascend = 30
     --warn("Unable to collect this fruit. it does not match any mutations")
     return false
 end
@@ -2490,7 +2491,6 @@ if not _G.AutoAscensionTask or not _G.AutoAscensionTask.Running then
             end 
             UpdateAscenStats("⚙️ Auto Ascension is running ")
             task.wait(sleep_ascend)
-            time_passed_ascen = 0
             local success, err = pcall(AutoAscension)
             if not success then
                 warn("⚠️ AutoAscension failed: ", err)
