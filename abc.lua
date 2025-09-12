@@ -1619,6 +1619,15 @@ local function GetEggCount(eggName)
     end
     
     -- check if the user is holding the egg
+    
+    -- check if the user is holding the egg
+    for _, item in ipairs(Character:GetChildren()) do
+        if item:IsA("Tool") and item:GetAttribute("h") == eggName then
+            local uses = item:GetAttribute("e") or 0
+            return uses
+        end
+    end
+    
     return 0
 end
 
