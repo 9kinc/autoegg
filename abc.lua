@@ -2417,6 +2417,43 @@ local function PlantRequiredFruitsForAscension(fruit_name)
 end
 
 
+function IsAscensionCountDownOver()
+    local RebirthConfirmation = PlayerGui.RebirthConfirmation
+    local success3, a_text = pcall(function()
+        return RebirthConfirmation.Frame.Frame.AscensionTimer.ContentText
+    end)
+     -- Check if ascension is ready
+    if success3 and a_text and a_text == "Next Ascension in 4:30" then
+        return true
+    end
+    
+    if not a_text then
+        return false
+    end
+
+     -- CONCATENATE ALL DIGITS: "4:26" -> "426"
+    local digitsConcat = a_text:gsub("%D", "")          -- remove every non-digit
+    local numeric = tonumber(digitsConcat) or 0       -- default to 0 if empty
+
+    -- your original rule: if less than 4 (e.g. "3" or "0") -> allow ascend
+    if numeric < 4 then
+        --print("is less than 4")
+        return true
+    end
+
+     local successv, is_vis = pcall(function()
+        return RebirthConfirmation.Frame.Frame.AscensionTimer.Visible
+    end)
+
+    -- if UI hidden -> allow ascend
+    if successv and not is_vis then
+        --print("ui is hidden")
+        return true
+    end
+
+    return false
+end
+
 local function AutoAscension()
     local fruit_name
     local mutations_fs = {}
@@ -2438,10 +2475,6 @@ local function AutoAscension()
         fruit_name = value2
     end
     
-    local success3, value3 = pcall(function()
-        return RebirthConfirmation.Frame.Frame.AscensionTimer.ContentText
-    end)
-    
      -- Normalize mutations into dictionary for fast lookup
     if success1 and value1 and value1 ~= "" then
         for mut in string.gmatch(value1, "([^,]+)") do
@@ -2450,9 +2483,8 @@ local function AutoAscension()
     end
     
     -- Check if ascension is ready
-    if success3 and value3 and value3 == "Next Ascension in 4:30" then
-        can_ascend = true
-    end
+    can_ascend = IsAscensionCountDownOver()
+    task.wait(0.1)
     
     --fruit_name = "Carrot" -- testing
     
@@ -2541,7 +2573,7 @@ end
 
 
 local function placeMissingEggs(myFarm)
-    print("Starting to place eggs...")
+    --print("Starting to place eggs...")
     lbl_stats:SetText("Starting to place eggs")
     local humanoid = Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
@@ -2573,20 +2605,20 @@ local function placeMissingEggs(myFarm)
 
         -- This check now correctly handles running out of eggs mid-placement.
         if not eggToolToEquip then
-            warn("Could not find any more placeable eggs. Stopping.")
+            --warn("Could not find any more placeable eggs. Stopping.")
             break
         end
 
         local egg_on_farm = GetCountEggsOnFarm()
         if egg_on_farm >= user_max_egg or is_max_eggs_reached then
             is_max_eggs_reached = true
-            warn("Max eggs placed")
+            --warn("Max eggs placed")
             lbl_stats:SetText("Max eggs placed")
             break
         end
 
         if #availablePositions == 0 then
-            warn("No more predefined placement spots available.")
+            --warn("No more predefined placement spots available.")
             lbl_stats:SetText("No more spots available.")
             is_max_eggs_reached = true
             break
@@ -2611,13 +2643,13 @@ local function placeMissingEggs(myFarm)
         else
             -- Failure.
             lbl_stats:SetText("Failed to equip the egg tool")
-            warn("Failed to equip the egg tool: " )
+            --warn("Failed to equip the egg tool: " )
             task.wait(0.3)
             -- The loop will automatically try again with a fresh tool.
         end
     end
 
-    print("✅ Egg placement complete.")
+    --print("✅ Egg placement complete.")
     if humanoid then
         humanoid:UnequipTools()
         task.wait(0.1)
@@ -2741,7 +2773,7 @@ end
 
  -- New sell all unfav pets
 local function SellAllPetsUnFavorite()
-    print("Sell All UnFav Process...")
+    --print("Sell All UnFav Process...")
     lbl_stats:SetText("Sell All UnFav Process...")
     if FSettings.is_test == false then
         SellAllPetsRemote:FireServer();
@@ -2765,7 +2797,7 @@ end
 
 -- The main function
 local function UnEquipAllPets()
-    print("Scanning for active pets...")
+    --print("Scanning for active pets...")
     local petsToConfirm = {} -- A list to track the UUIDs we are unequipping
     local petsarray = petsContainer:GetChildren()
     -- STEP 1: Fire all unequip requests in a rapid burst
@@ -2784,11 +2816,11 @@ local function UnEquipAllPets()
 
     -- If there's nothing to unequip, we're done
     if #petsToConfirm == 0 then
-        print("No pets belonging to you were found.")
+        --print("No pets belonging to you were found.")
         return true
     end
 
-    print("Sent " .. #petsToConfirm .. " unequip requests. Now waiting for confirmation...")
+    --print("Sent " .. #petsToConfirm .. " unequip requests. Now waiting for confirmation...")
 
     -- STEP 2: Wait for all pets in our list to be removed
     local timeout = 15 -- Max wait time in seconds
@@ -2813,11 +2845,11 @@ local function UnEquipAllPets()
 
     -- STEP 3: Report the final result
     if #petsToConfirm == 0 then
-        print("✅ Success! All pets were confirmed as removed.")
+        --print("✅ Success! All pets were confirmed as removed.")
         return true
     else
         -- failed to remove all pets. redo the process
-        warn("⚠️ Timeout! Could not confirm removal for " .. #petsToConfirm .. " pets.")
+        --warn("⚠️ Timeout! Could not confirm removal for " .. #petsToConfirm .. " pets.")
         for _, remainingUUID in ipairs(petsToConfirm) do
             print(" - Still waiting on UUID: " .. remainingUUID)
         end
