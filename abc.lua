@@ -70,6 +70,7 @@ local MultiDropdownEggPetSizeTeam
 
 -- save for mutations and others
 local FOtherSettings = {
+    is_playerstats_running = true,
     web_api_key= "",
     auto_ascension = false,
     auto_sellbackpack = false,
@@ -323,8 +324,7 @@ local PlayerSecrets = {
     PetEggHatchAgeBonus = 0,
     PetEggHatchSizeBonus = 0,
     PetPassiveBonus = 0,
-    SessionTime = 0,
-
+    SessionTime = 0, 
 }
 
 
@@ -1105,6 +1105,132 @@ task.spawn(updateEggEspUi)
 
 
 --======= EGG SYSTEM
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------------
+-----------======== Players status
+---------------------------------------------------
+
+ 
+ 
+local statsGui
+local statLabels 
+-- Internal loop to handle UI visibility and updates
+if not _G.task_player_stats then
+    _G.task_player_stats = task.spawn(function() 
+        while true do
+            task.wait(0.5) -- check interval
+              
+            -- Show UI if flag is true and UI doesn't exist
+            if FOtherSettings.is_playerstats_running then
+                 
+                if not statsGui or not statsGui.Parent then
+                    statLabels = {}
+    
+                    statsGui = Instance.new("ScreenGui")
+                    statsGui.Name = "SecretStatsGui"
+                    statsGui.ResetOnSpawn = false
+    
+                    local mainFrame = Instance.new("Frame", statsGui)
+                    mainFrame.Name = "MainFrame"
+                    mainFrame.AnchorPoint = Vector2.new(0, 0.5)
+                    mainFrame.Position = UDim2.new(0, 15, 0.3, 0)
+                    mainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+                    mainFrame.BackgroundTransparency = 1
+                    mainFrame.BorderSizePixel = 0
+                    mainFrame.AutomaticSize = Enum.AutomaticSize.Y
+    
+                    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+                    local padding = Instance.new("UIPadding", mainFrame)
+                    padding.PaddingLeft = UDim.new(0, 10)
+                    padding.PaddingRight = UDim.new(0, 10)
+                    padding.PaddingTop = UDim.new(0, 10)
+                    padding.PaddingBottom = UDim.new(0, 10)
+    
+                    local listLayout = Instance.new("UIListLayout", mainFrame)
+                    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                    listLayout.Padding = UDim.new(0, 4)
+    
+                    -- Create labels
+                    for key, val in pairs(PlayerSecrets) do
+                        local textLabel = Instance.new("TextLabel", mainFrame)
+                        textLabel.Name = key
+                        textLabel.Text = key .. ": 0"
+                        textLabel.Font = Enum.Font.SourceSans
+                        textLabel.TextSize = 17
+                        textLabel.TextColor3 = Color3.new(1, 1, 1)
+                        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        textLabel.BackgroundTransparency = 1
+                        textLabel.Size = UDim2.new(1, 0, 0, 18)
+                        textLabel.RichText = true
+    
+                        local textOutline = Instance.new("UIStroke", textLabel)
+                        textOutline.Color = Color3.new(0, 0, 0)
+                        textOutline.Thickness = 1
+    
+                        statLabels[key] = textLabel
+                    end
+    
+                    statsGui.Parent = PlayerGui
+                end
+    
+                -- Update all labels
+                if statLabels then
+                    for key, label in pairs(statLabels) do
+                        local value = LocalPlayer:GetAttribute(key) or 0
+                        local formattedValue = typeof(value) == "number" and string.format("%.2f", value) or tostring(value)
+                        if formattedValue == "0.00" then
+                            label.Text = key .. ": " .. formattedValue 
+                        else
+                            label.Text = key .. ": <b><font color='#FF7800'>" .. formattedValue .. "</font></b>"
+                        end
+                         
+                    end
+                end
+    
+            -- Hide UI if flag is false
+            else
+                if statsGui and statsGui.Parent then
+                    statsGui:Destroy()
+                    statsGui = nil
+                    statLabels = nil
+                    print("💫 destoryed")
+                end
+            end
+        end
+    end)
+else
+    warn("Already set player stats")
+end
+
+
+--------------------------------------------------- END Player stats
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4932,6 +5058,20 @@ function SettingsUi()
             Library:Notify("Updated", 3)
         end
     })
+    
+    
+      -- PlayerStats
+    GroupBoxOtherSettings:AddToggle("togglePlayerStats", {
+        Text = "Player Stats",
+        Default = FOtherSettings.is_playerstats_running,
+        Tooltip = "Show/Hide Player Stats Ui",
+        Callback = function(Value)
+            FOtherSettings.is_playerstats_running = Value
+            SaveDataOther()
+            Library:Notify("Updated", 3)
+        end
+    })
+    
     
     --======== WEbhook
     
