@@ -1,51 +1,55 @@
 -- Wait for the game to be fully loaded
 if not game:IsLoaded() then game.Loaded:Wait() end;
 
+local _S = {}
 
--- Get necessary game services and the local player
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local GameEvents = ReplicatedStorage:WaitForChild("GameEvents");
--- Define the paths to the remote event and pet container
-local petsServiceRemote = GameEvents:WaitForChild("PetsService")
-local PetEggService = GameEvents:WaitForChild("PetEggService")
-local BuyGearStock = GameEvents.BuyGearStock -- RemoteEvent GearS
-local BuySeedStock = GameEvents.BuySeedStock -- RemoteEvent SeedS
-local BuyPetEgg = GameEvents.BuyPetEgg -- RemoteEvent PetShop
-local BuyTravelingMerchantShopStock = GameEvents:WaitForChild("BuyTravelingMerchantShopStock") -- RemoteEvent PetShop
+-- Game services
+_S.HttpService = game:GetService("HttpService")
+_S.ReplicatedStorage = game:GetService("ReplicatedStorage")
+_S.Workspace = game:GetService("Workspace")
+_S.TeleportService = game:GetService("TeleportService")
+_S.Players = game:GetService("Players")
+_S.RunService = game:GetService("RunService")
 
-local SellPetRemote = GameEvents:WaitForChild("SellPet_RE");
-local petsContainer = Workspace:WaitForChild("PetsPhysical")
-local FavItem = GameEvents:WaitForChild("Favorite_Item")
-local SellAllPetsRemote = GameEvents:WaitForChild("SellAllPets_RE")
+-- Local player and character
+_S.LocalPlayer = _S.Players.LocalPlayer
+_S.Character = _S.LocalPlayer.Character or _S.LocalPlayer.CharacterAdded:Wait()
+_S.Backpack = _S.LocalPlayer:WaitForChild("Backpack")
+_S.PlayerGui = _S.LocalPlayer:WaitForChild("PlayerGui")
+_S.player_humanoid = _S.Character:FindFirstChildOfClass("Humanoid")
 
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait();
-local Backpack = LocalPlayer:WaitForChild("Backpack");
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local RunService = game:GetService("RunService")
+-- Game events
+_S.GameEvents = _S.ReplicatedStorage:WaitForChild("GameEvents")
+_S.petsServiceRemote = _S.GameEvents:WaitForChild("PetsService")
+_S.PetEggService = _S.GameEvents:WaitForChild("PetEggService")
+_S.BuyGearStock = _S.GameEvents.BuyGearStock
+_S.BuySeedStock = _S.GameEvents.BuySeedStock
+_S.BuyPetEgg = _S.GameEvents.BuyPetEgg
+_S.BuyTravelingMerchantShopStock = _S.GameEvents:WaitForChild("BuyTravelingMerchantShopStock")
+_S.SellPetRemote = _S.GameEvents:WaitForChild("SellPet_RE")
+_S.SellAllPetsRemote = _S.GameEvents:WaitForChild("SellAllPets_RE")
+_S.Sell_Inventory = _S.GameEvents.Sell_Inventory
+_S.DataStream = _S.GameEvents.DataStream
+_S.PlantRemote = _S.GameEvents:WaitForChild("Plant_RE")
+_S.collectEvent = _S.GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
+_S.FavItem = _S.GameEvents:WaitForChild("Favorite_Item")
 
-local Sell_Inventory = GameEvents.Sell_Inventory -- RemoteEvent 
-local DataStream = GameEvents.DataStream -- RemoteEvent
-local PlantRemote = GameEvents:WaitForChild("Plant_RE")
+-- Containers
+_S.petsContainer = _S.Workspace:WaitForChild("PetsPhysical")
 
-local collectEvent = GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
-local SeedData = require(ReplicatedStorage.Data.SeedData)
+-- UI references
+_S.GearShopUI = _S.PlayerGui:WaitForChild("Gear_Shop")
+_S.SeedShopUI = _S.PlayerGui:WaitForChild("Seed_Shop")
+_S.PetShopUI = _S.PlayerGui:WaitForChild("PetShop_UI")
+_S.TravelingMerchantShop_UI = _S.PlayerGui:WaitForChild("TravelingMerchantShop_UI")
 
-local GearShopUI = PlayerGui:WaitForChild("Gear_Shop")
-local SeedShopUI = PlayerGui:WaitForChild("Seed_Shop")
-local PetShopUI = PlayerGui:WaitForChild("PetShop_UI")
-local TravelingMerchantShop_UI = PlayerGui:WaitForChild("TravelingMerchantShop_UI")
+-- Modules
+_S.SeedData = require(_S.ReplicatedStorage.Data.SeedData)
+_S.PetUtilities = require(_S.ReplicatedStorage.Modules.PetServices.PetUtilities)
 
-local PetUtilities = require(game:GetService("ReplicatedStorage").Modules.PetServices.PetUtilities)
-
-local player_humanoid = Character:FindFirstChildOfClass("Humanoid")
-
-local WEBHOOK_URL = ""
-local PROXY_URL = "https://bit.ly/exotichubp"
+-- Webhook / Proxy
+_S.WEBHOOK_URL = ""
+_S.PROXY_URL = "https://bit.ly/exotichubp"
 
 task.wait(2)
 
@@ -54,19 +58,25 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deivi
 
 
 -- UI Labels
-local lbl_stats
-local lbl_fruit_collect_live
-local lbl_fariystats
-local lbl_ascenstats
-local lbl_selected_team1_count
-local lbl_selected_team2_count
-local lbl_selected_team3_count
-local lbl_selected_team4_count
+local UI_LABELS = { 
+    lbl_stats= nil,
+    lbl_fruit_collect_live= nil,
+    lbl_fariystats= nil,
+    lbl_ascenstats= nil,
+    lbl_selected_team1_count= nil,
+    lbl_selected_team2_count= nil,
+    lbl_selected_team3_count= nil,
+    lbl_selected_team4_count= nil,
+    
+    --  dropdowns
+    MultiDropdownSellTeam = nil,
+    MultiDropdownHatchTeam= nil,
+    MultiDropdownEggReductionTeam= nil,
+    MultiDropdownEggPetSizeTeam= nil,
+}
+ 
 
-local MultiDropdownSellTeam
-local MultiDropdownHatchTeam
-local MultiDropdownEggReductionTeam
-local MultiDropdownEggPetSizeTeam
+
 
 -- save for mutations and others
 local FOtherSettings = {
@@ -86,6 +96,7 @@ local FOtherSettings = {
 
 -- Save and other settings
 local FSettings = {
+    is_auto_hatch_enabled = false,
     is_egg_esp = false,
     is_fairy_scanner_active = false,
     buy_gearshop= false,
@@ -124,7 +135,7 @@ local FSettings = {
     send_rare_pet_alert = true,
     send_big_pet_alert = true,
     auto_remove_plants_folder = false,
-    webhook_url = WEBHOOK_URL,
+    webhook_url = _S.WEBHOOK_URL,
     team1 = {},
     team2 = {},
     team3 = {}, -- added
@@ -154,15 +165,15 @@ local FSettings = {
         ["Mythical Egg"] = {
             ["Grey Mouse"] = true, ["Brown Mouse"] = true, ["Squirrel"] = true, ["Red Giant Ant"] = true, ["Red Fox"] = false
         },
-        
+
         -- Legendary Egg
         ["Legendary Egg"] = {
             ["Cow"] = true, ["Silver Monkey"] = true, ["Sea Otter"] = true, ["Turtle"] = true, ["Polar Bear"] = false
         },
-    
+
         -- Rainbow Premium Primal Egg
         ["Rainbow Premium Primal Egg"] = {
-            ["Rainbow Parasaurolophus"] = true, ["Rainbow Iguanodon"] = true, ["Rainbow Pachycephalosaurus"] = true, 
+            ["Rainbow Parasaurolophus"] = true, ["Rainbow Iguanodon"] = true, ["Rainbow Pachycephalosaurus"] = true,
             ["Rainbow Dilophosaurus"] = true, ["Rainbow Ankylosaurus"] = true, ["Rainbow Spinosaurus"] = false
         },
         -- Enchanted Egg
@@ -310,7 +321,7 @@ local shops_can_function = false; -- shops can't start unless told to
 
 local backpack_full = false
 
-local player_userid = LocalPlayer.UserId
+local player_userid = _S.LocalPlayer.UserId
 
 if not player_userid then
     warn("Invalid player detected.")
@@ -368,7 +379,7 @@ local all_plants_list = {}
 -- Get all plants / seeds
 local function FetchAllSeedNames()
     local xall_seed_names = {}
-    for _, seed in pairs(SeedData) do
+    for _, seed in pairs(_S.SeedData) do
         if seed.SeedName then
             local name = seed.SeedName
               -- Removes " Seed" from the end of the name for a cleaner list
@@ -397,7 +408,7 @@ end
 
 -- Teleport function
 local function TeleportPlayerToCFrame(targetCFrame)
-    local player = LocalPlayer
+    local player = _S.LocalPlayer
 
     -- Function to set the HumanoidRootPart CFrame
     local function setCFrame(character)
@@ -422,8 +433,8 @@ end
 
 
 local function GetRealPetWeight(BaseWeight,level)
-    if not PetUtilities then return BaseWeight end
-    local weight = PetUtilities:CalculateWeight(BaseWeight or 1, level or 1) 
+    if not _S.PetUtilities then return BaseWeight end
+    local weight = _S.PetUtilities:CalculateWeight(BaseWeight or 1, level or 1) 
     return weight;
 end
 
@@ -437,13 +448,13 @@ end
 
 -- Function to update PlayerSecrets with safe checks
 local function UpdatePlayerStats()
-    if not LocalPlayer then
+    if not _S.LocalPlayer then
         warn("UpdatePlayerStats called without a valid LocalPlayer")
         return
     end
 
     for key, _ in pairs(PlayerSecrets) do
-        local value = LocalPlayer:GetAttribute(key) -- safely try to get attribute
+        local value = _S.LocalPlayer:GetAttribute(key) -- safely try to get attribute
         if value ~= nil then
             PlayerSecrets[key] = value
         else
@@ -456,7 +467,7 @@ end
 
 -- Teleport buttons ingame
 local function ShopTeleportButtons()
-    local teleportFrame = LocalPlayer.PlayerGui.Teleport_UI.Frame
+    local teleportFrame = _S.LocalPlayer.PlayerGui.Teleport_UI.Frame
     if not teleportFrame then
         return
     end
@@ -565,23 +576,23 @@ end
 
 -- Seed Shop
 task.spawn(function()
-    ShopPurchaseLoop(SeedShopUI, "buy_seedshop", "seedshop_items", BuySeedStock, "SeedShopLoopRunning")
+    ShopPurchaseLoop(_S.SeedShopUI, "buy_seedshop", "seedshop_items", _S.BuySeedStock, "SeedShopLoopRunning")
 end)
 
 -- GearShop
 task.spawn(function()
-    ShopPurchaseLoop(GearShopUI, "buy_gearshop", "gearshop_items", BuyGearStock, "GearShopLoopRunning")
+    ShopPurchaseLoop(_S.GearShopUI, "buy_gearshop", "gearshop_items", _S.BuyGearStock, "GearShopLoopRunning")
 end)
 
 -- EggShop
 task.spawn(function()
-    ShopPurchaseLoop(PetShopUI, "buy_eggshop", "eggshop_items", BuyPetEgg, "EggShopLoopRunning")
+    ShopPurchaseLoop(_S.PetShopUI, "buy_eggshop", "eggshop_items", _S.BuyPetEgg, "EggShopLoopRunning")
 end)
 
 
 -- TravelingMerchant
 task.spawn(function()
-    ShopPurchaseLoop(TravelingMerchantShop_UI, "buy_merchant", "merchantshop_items", BuyTravelingMerchantShopStock, "MerchantShopLoopRunning")
+    ShopPurchaseLoop(_S.TravelingMerchantShop_UI, "buy_merchant", "merchantshop_items", _S.BuyTravelingMerchantShopStock, "MerchantShopLoopRunning")
 end)
 
 
@@ -629,7 +640,7 @@ local save_fname_other = "a_acssave_v15_other.json"
 -- Saving and loading
 local function SaveData()
     local success, json = pcall(function()
-        return HttpService:JSONEncode(FSettings)
+        return _S.HttpService:JSONEncode(FSettings)
     end)
 
     if success then
@@ -642,7 +653,7 @@ end
 
 local function SaveDataOther()
     local success, json = pcall(function()
-        return HttpService:JSONEncode(FOtherSettings)
+        return _S.HttpService:JSONEncode(FOtherSettings)
     end)
 
     if success then
@@ -667,7 +678,7 @@ local function LoadDataOther()
         return
     end
 
-    local success, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+    local success, decoded = pcall(_S.HttpService.JSONDecode, _S.HttpService, json)
     if not success then
         print("❌ Error decoding JSON from save file. It might be corrupted. Using defaults.")
         return
@@ -704,7 +715,7 @@ local function LoadData()
         return
     end
 
-    local success, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+    local success, decoded = pcall(_S.HttpService.JSONDecode, _S.HttpService, json)
     if not success then
         print("❌ Error decoding JSON from save file. It might be corrupted. Using defaults.")
         return
@@ -803,15 +814,15 @@ local was_backpack_updated = false;
 
 -- Find your farm, do not change this, its tested and reliable
 local function findMyFarm()
-    for _,farm in ipairs(Workspace:WaitForChild("Farm"):GetChildren()) do
+    for _,farm in ipairs(_S.Workspace:WaitForChild("Farm"):GetChildren()) do
         local owner = farm:FindFirstChild("Important")
                       and farm.Important:FindFirstChild("Data")
                       and farm.Important.Data:FindFirstChild("Owner")
-        if owner and owner:IsA("StringValue") and owner.Value == LocalPlayer.Name then
+        if owner and owner:IsA("StringValue") and owner.Value == _S.LocalPlayer.Name then
             return farm
         end
     end
-    warn("Farm not found for "..LocalPlayer.Name)
+    warn("Farm not found for " .. _S.LocalPlayer.Name)
     return nil
 end
 
@@ -837,8 +848,18 @@ end
 
 
 
+local UPDATE_LABELS_FUNC = {
+    -- updates the main hatching stats
+    UpdateSetLblStats = function (_txt)
+        if UI_LABELS.lbl_stats then
+            UI_LABELS.lbl_stats:SetText(_txt)
+        end
+    end
+}
+ 
+
 local function unequipTools()
-    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local humanoid = _S.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
     humanoid:UnequipTools()
     task.wait(0.2)
@@ -847,7 +868,7 @@ end
 
 -- Pet info
 local function GetPetDataByUUID(uuid)
-    local _petData = PetUtilities:GetPetByUUID(LocalPlayer, uuid)
+    local _petData = _S.PetUtilities:GetPetByUUID(_S.LocalPlayer, uuid)
     if not _petData then
         print("pet not found")
         return nil
@@ -875,7 +896,7 @@ end
 
 -- ================ EGG SYSTEM
 
-_G.EggDataStreamListener = DataStream.OnClientEvent:Connect(function(action, profileName, data)
+_G.EggDataStreamListener = _S.DataStream.OnClientEvent:Connect(function(action, profileName, data)
     if action ~= "UpdateData" or not profileName then return end
      
     local eggsData = {}
@@ -1100,7 +1121,7 @@ end
  
 -- run the scan
 ScanPetEggInsideData() 
---print("GC scan complete. Found:", HttpService:JSONEncode(found_pet_data))
+--print("GC scan complete. Found:", _S.HttpService:JSONEncode(found_pet_data))
 task.spawn(updateEggEspUi)
 
 
@@ -1182,13 +1203,13 @@ if not _G.task_player_stats then
                         statLabels[key] = textLabel
                     end
     
-                    statsGui.Parent = PlayerGui
+                    statsGui.Parent = _S.PlayerGui
                 end
     
                 -- Update all labels
                 if statLabels then
                     for key, label in pairs(statLabels) do
-                        local value = LocalPlayer:GetAttribute(key) or 0
+                        local value = _S.LocalPlayer:GetAttribute(key) or 0
                         local formattedValue = typeof(value) == "number" and string.format("%.2f", value) or tostring(value)
                         if formattedValue == "0.00" then
                             label.Text = key .. ": " .. formattedValue 
@@ -1253,13 +1274,13 @@ local function scanFairies()
             continue
         end
         scan_amount = scan_amount + 1
-        if not lbl_fariystats then
-            print("null lbl_stats")
+        if not UI_LABELS.lbl_fariystats then
+            print("null UI lbl_stats")
             continue
         end
         
         --print("🔍 Fairy scanning " .. scan_amount)
-        lbl_fariystats:SetText("🔍 Fairy scanning " .. scan_amount)
+        UI_LABELS.lbl_fariystats:SetText("🔍 Fairy scanning " .. scan_amount)
  
         for i = 1, 15 do
             local slot = workspace:FindFirstChild(tostring(i))
@@ -1285,14 +1306,14 @@ local function scanFairies()
 
                     if fspam % 20 == 0 then
                         local infox ="⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)"
-                        lbl_fariystats:SetText(infox)
+                        UI_LABELS.lbl_fariystats:SetText(infox)
                     end
                     
                     task.wait(0.5)
                 end
                 scan_amount = 0
                 --print("❌ Fairy disappeared after")
-                lbl_fariystats:SetText("❌ Fairy disappeared after")
+                UI_LABELS.lbl_fariystats:SetText("❌ Fairy disappeared after")
             end
         end
     end 
@@ -1312,7 +1333,7 @@ end
 -- this returns how many eggs user has unlocked and can play
 local function GetMaxEggCapacity()
     -- Safely find the UI element by checking each part of the path
-    local amountLabel = Players.LocalPlayer.PlayerGui.Shop_UI.Frame.ScrollingFrame.PetProducts.List.EggSlot.Amount
+    local amountLabel = _S.Players.LocalPlayer.PlayerGui.Shop_UI.Frame.ScrollingFrame.PetProducts.List.EggSlot.Amount
     local max_eggs = 3 -- user starts with 3
 
     if amountLabel then
@@ -1340,7 +1361,7 @@ end
 
 local function GetMaxPetCapacity()
     -- Get the UI element that displays the pet count
-    local titleLabel = Players.LocalPlayer.PlayerGui.ActivePetUI.Frame.Main.Holder.Header.Title
+    local titleLabel = _S.Players.LocalPlayer.PlayerGui.ActivePetUI.Frame.Main.Holder.Header.Title
     if not titleLabel then
         return 8
     end
@@ -1389,7 +1410,7 @@ local function DeleteAllPlantsFolder()
     print("Searching for Plants_Physical to remove...")
     
     -- Safely check for Farm
-    local farmFolder = Workspace:FindFirstChild("Farm")
+    local farmFolder = _S.Workspace:FindFirstChild("Farm")
     if not farmFolder then
         warn("Farm folder not found in workspace.")
         return
@@ -1427,7 +1448,7 @@ end
 local trackedPets = {}
 
 -- Populate trackedPets initially with pets
-for _, item in ipairs(Backpack:GetChildren()) do
+for _, item in ipairs(_S.Backpack:GetChildren()) do
     if item:IsA("Tool") and item:GetAttribute("ItemType") == "Pet" then
         local petUUID = item:GetAttribute("PET_UUID")
         if petUUID then
@@ -1455,7 +1476,7 @@ local function watchBackPack()
         end
     end
 
-    Backpack.ChildAdded:Connect(onChildAdded)
+    _S.Backpack.ChildAdded:Connect(onChildAdded)
 end
  
 
@@ -1492,7 +1513,7 @@ end
 local function GetServerVersion()
     -- Use pcall to prevent errors if the UI element doesn't exist or hasn't loaded yet
     local success, versionLabel = pcall(function()
-        return LocalPlayer.PlayerGui.Version_UI.Version
+        return _S.LocalPlayer.PlayerGui.Version_UI.Version
     end)
 
     if success and versionLabel then
@@ -1600,14 +1621,14 @@ local function sendWebhook(title, description, colour,db_data)
      
     
     pcall(function()
-        local body = HttpService:JSONEncode(payload)
+        local body = _S.HttpService:JSONEncode(payload)
         local req  = (syn and syn.request) or request
         if req then
-            req({Url=PROXY_URL,Method="POST",
+            req({Url=_S.PROXY_URL,Method="POST",
                  Headers={["Content-Type"]="application/json"},
                  Body=body})
         else
-            HttpService:PostAsync(PROXY_URL, body)
+            _S.HttpService:PostAsync(_S.PROXY_URL, body)
         end
     end)
 end
@@ -1670,9 +1691,9 @@ local function UpdatePetData()
     print("🔄 Refreshing pet data...")
     is_value_selection_update = true
      -- Get all active pets 
-    local contiems = petsContainer:GetChildren()
+    local contiems = _S.petsContainer:GetChildren()
     for _, pet in ipairs(contiems) do
-        if pet and pet:GetAttribute("OWNER") == LocalPlayer.Name then
+        if pet and pet:GetAttribute("OWNER") == _S.LocalPlayer.Name then
             local uuidx = pet:GetAttribute("UUID")
             if uuidx then
                 local pet_data = GetPetDataByUUID(uuidx)
@@ -1693,7 +1714,7 @@ local function UpdatePetData()
     end
     
     -- Scan the backpack and populate the new cache.
-    local b_ar = Backpack:GetChildren()
+    local b_ar = _S.Backpack:GetChildren()
     for _, item in ipairs(b_ar) do
         if item:IsA("Tool") and item:GetAttribute("ItemType") == "Pet" then
             local uuid = item:GetAttribute("PET_UUID")
@@ -1703,27 +1724,27 @@ local function UpdatePetData()
         end
     end
 
-    if MultiDropdownHatchTeam and MultiDropdownSellTeam and MultiDropdownEggReductionTeam and MultiDropdownEggPetSizeTeam then
+    if UI_LABELS.MultiDropdownHatchTeam and UI_LABELS.MultiDropdownSellTeam and UI_LABELS.MultiDropdownEggReductionTeam and UI_LABELS.MultiDropdownEggPetSizeTeam then
         local team1data = ConvertUUIDToPetNamesPairs(FSettings.team1)
         local team2data = ConvertUUIDToPetNamesPairs(FSettings.team2)
         local team3data = ConvertUUIDToPetNamesPairs(FSettings.team3)
         local team4data = ConvertUUIDToPetNamesPairs(FSettings.team4)
         
         is_value_selection_update = true
-        MultiDropdownSellTeam:SetValues(GetPetsCacheAsTable());
-        MultiDropdownSellTeam:SetValue(team1data)
+        UI_LABELS.MultiDropdownSellTeam:SetValues(GetPetsCacheAsTable());
+        UI_LABELS.MultiDropdownSellTeam:SetValue(team1data)
          
         is_value_selection_update = true
-        MultiDropdownHatchTeam:SetValues(GetPetsCacheAsTable());
-        MultiDropdownHatchTeam:SetValue(team2data)
+        UI_LABELS.MultiDropdownHatchTeam:SetValues(GetPetsCacheAsTable());
+        UI_LABELS.MultiDropdownHatchTeam:SetValue(team2data)
         
         is_value_selection_update = true
-        MultiDropdownEggReductionTeam:SetValues(GetPetsCacheAsTable());
-        MultiDropdownEggReductionTeam:SetValue(team3data)
+        UI_LABELS.MultiDropdownEggReductionTeam:SetValues(GetPetsCacheAsTable());
+        UI_LABELS.MultiDropdownEggReductionTeam:SetValue(team3data)
         
         is_value_selection_update = true
-        MultiDropdownEggPetSizeTeam:SetValues(GetPetsCacheAsTable());
-        MultiDropdownEggPetSizeTeam:SetValue(team4data)
+        UI_LABELS.MultiDropdownEggPetSizeTeam:SetValues(GetPetsCacheAsTable());
+        UI_LABELS.MultiDropdownEggPetSizeTeam:SetValue(team4data)
     end
      
 end
@@ -1736,7 +1757,7 @@ UpdatePetData()
 -- Get egg count, count passed in egg name
 local function GetEggCount(eggName)
     if not eggName then return 0 end
-    local egg_ar = Backpack:GetChildren();
+    local egg_ar = _S.Backpack:GetChildren();
     for _, item in ipairs(egg_ar) do
         if item:IsA("Tool") and item:GetAttribute("h") == eggName then
             local uses = item:GetAttribute("e") or 0
@@ -1747,7 +1768,7 @@ local function GetEggCount(eggName)
     -- check if the user is holding the egg
     
     -- check if the user is holding the egg
-    for _, item in ipairs(Character:GetChildren()) do
+    for _, item in ipairs(_S.Character:GetChildren()) do
         if item:IsA("Tool") and item:GetAttribute("h") == eggName then
             local uses = item:GetAttribute("e") or 0
             return uses
@@ -1786,7 +1807,7 @@ local function CheckAnyEggsToHatch()
 
     if not mObjects_Physical then
         warn("issue finding Objects_Physical")
-        lbl_stats:SetText("CheckAnyEggsToHatch: not found Objects_Physical")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("CheckAnyEggsToHatch: not found Objects_Physical")
         task.wait(1)
         return false
     end
@@ -1794,7 +1815,7 @@ local function CheckAnyEggsToHatch()
     local eggs_on_farm_array = mObjects_Physical:GetChildren()
     if #eggs_on_farm_array == 0 then
         warn("No eggs found on farm")
-        lbl_stats:SetText("CheckAnyEggsToHatch: No eggs found on farm")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("CheckAnyEggsToHatch: No eggs found on farm")
         task.wait(1)
         return true -- Returning true signals that we need to place more eggs
     end
@@ -1832,7 +1853,7 @@ local function HatchReport()
     local _sellbuff = string.format("%.2f", tracked_bonus_egg_sell_refund or 0)
     local _petsizebuff_display = string.format("%.2f", pet_size_bonus or 0)
     local serverv = GetServerVersion()
-    local hatch_player_uname = LocalPlayer.Name
+    local hatch_player_uname = _S.LocalPlayer.Name
     local hatchedCount = #newPetNames
     
     -- Add the list of all hatched pets
@@ -1972,7 +1993,7 @@ local function HatchReport()
     if #rareLines > 0 then
         local rareMsg = {
             "**-> Hatched By:**",
-            string.format("│ Username: ||`%s`||", LocalPlayer.Name),
+            string.format("│ Username: ||`%s`||", _S.LocalPlayer.Name),
             "",
             string.format("**-> Rare Pets (%d):**", #rareLines),
             table.concat(rareLines, "\n")
@@ -1986,7 +2007,7 @@ local function HatchReport()
     if #bigLines > 0 then
         local bigMsg = {
             "**-> Hatched By:**",
-            string.format("│ Username: ||`%s`||", LocalPlayer.Name),
+            string.format("│ Username: ||`%s`||", _S.LocalPlayer.Name),
             "",
             string.format("**-> Big Pets (%d):**", #bigLines),
             table.concat(bigLines, "\n")
@@ -2005,7 +2026,7 @@ local function SendInfoNoEggs()
     local bigMsg = {
         "❌ **Out of Eggs!** ❌",
         "",
-        string.format("│ Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ Username: ||`%s`||", _S.LocalPlayer.Name),
         "",
         "❌ **You have no eggs left.**",
         "",
@@ -2018,7 +2039,7 @@ local function SendInfoFailedTeamPlace()
     local bigMsg = {
         "❌ **Failed to place a team!** ❌",
         "",
-        string.format("│ Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ Username: ||`%s`||", _S.LocalPlayer.Name),
         "",
         "❌ **Team failed to be place.**",
         "",
@@ -2033,7 +2054,7 @@ local function SendErrorMessage(errorMsg)
     local bigMsg = {
         "❌ Error ❌",
         "",
-        string.format("│ Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ Username: ||`%s`||", _S.LocalPlayer.Name),
         "",
         "❌ " .. errorMsg,
         "",
@@ -2056,7 +2077,7 @@ local function send_10min_report()
         string.format("│ 🐣 Hatched in this 10-min block: `%d`", FSettings.eggs_hatched_in_10_min_session),
         string.format("│ 🕒 Hatched in this hourly block: `%d`", FSettings.eggs_hatched_in_hourly_session),
         string.format("│ 📈 Total Hatched (All Time): `%d`", FSettings.pets_hatched_total), "",
-        string.format("│ 👤 Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ 👤 Username: ||`%s`||", _S.LocalPlayer.Name),
     }
     sendWebhook("Timed Report (10 Min)", table.concat(descriptionLines, "\n"), 16776960) -- Yellow Color
 end
@@ -2066,7 +2087,7 @@ local function send_hourly_report()
         "**⏰ Hourly Stats Summary**", "",
         string.format("│ 🐣 Hatched this hour: `%d`", FSettings.eggs_hatched_in_hourly_session),
         string.format("│ 📈 Total Hatched (All Time): `%d`", FSettings.pets_hatched_total), "",
-        string.format("│ 👤 Username: ||`%s`||", LocalPlayer.Name),
+        string.format("│ 👤 Username: ||`%s`||", _S.LocalPlayer.Name),
     }
     sendWebhook("Timed Report (Hourly)", table.concat(descriptionLines, "\n"), 5763719) -- Dark Green Color
 end
@@ -2111,10 +2132,10 @@ end
 local function findEggTool(eggName)
     if not eggName then return nil end
     -- 1. Check if the character is already holding the correct tool.
-    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local humanoid = _S.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         -- A character can only hold one tool at a time.
-        local equippedTool = Character:FindFirstChildOfClass("Tool")
+        local equippedTool = _S.Character:FindFirstChildOfClass("Tool")
         
         -- Check if a tool is equipped AND if it's the right egg.
         if equippedTool and equippedTool:GetAttribute("h") == eggName then
@@ -2123,7 +2144,7 @@ local function findEggTool(eggName)
     end
 
     -- 2. If not equipped, search the player's backpack.
-    for _, tool in ipairs(Backpack:GetChildren()) do
+    for _, tool in ipairs(_S.Backpack:GetChildren()) do
         if tool:IsA("Tool") and tool:GetAttribute("h") == eggName then
             return tool -- Found it in the backpack.
         end
@@ -2283,13 +2304,13 @@ end
 --------------------------------------------------------------
 
 local function UpdateAscenStats(_txt)
-    if not lbl_ascenstats then return end
-    lbl_ascenstats:SetText(_txt)
+    if not UI_LABELS.lbl_ascenstats then return end
+    UI_LABELS.lbl_ascenstats:SetText(_txt)
 end
 
 local function FetchGardenCoins()
     local success, value = pcall(function()
-        return PlayerGui.GardenCoinCurrency_UI.Frame.TextLabel1.val.Value
+        return _S.PlayerGui.GardenCoinCurrency_UI.Frame.TextLabel1.val.Value
     end)
 
     garden_coins = tonumber(success and value) or 0
@@ -2299,7 +2320,7 @@ end
 
 local function FetchHoneyCoins()
     local success, value = pcall(function()
-        return PlayerGui.Honey_UI.Frame.TextLabel1.val.Value
+        return _S.PlayerGui.Honey_UI.Frame.TextLabel1.val.Value
     end)
 
     honey_coins = tonumber(success and value) or 0
@@ -2307,7 +2328,7 @@ end
 
 
 
-if not _G.CoinFetchTask or not _G.CoinFetchTask.Running then
+if not _G.CoinFetchTask then
     _G.CoinFetchTask = task.spawn(function()
         while true do
             task.wait(30)
@@ -2372,7 +2393,7 @@ local function CollectFruitUsingNameAndMut(plantName, requiredMutations)
     end
 
     if #fruitsToCollect > 0 then
-        collectEvent:FireServer(fruitsToCollect)
+        _S.collectEvent:FireServer(fruitsToCollect)
         --print("🍉 Collected", #fruitsToCollect, "fruit(s)")
         sleep_ascend = 2 -- lower time for faster submit
         return true
@@ -2401,14 +2422,14 @@ end
 -- Function to plant a seed safely
 local function PlantSeed(position, seedName)
     local success, err = pcall(function() 
-        PlantRemote:FireServer(position,seedName)
+        _S.PlantRemote:FireServer(position,seedName)
     end)
 end
 
 
 local function CharEquipTool(tool)
     if tool and tool:IsA("Tool") then
-        tool.Parent = Character  -- equip the tool
+        tool.Parent = _S.Character  -- equip the tool
         --print("✅ Equipped tool:", tool.Name)
         return true
     else
@@ -2429,7 +2450,7 @@ local function FindFruitInBackpack(fruitname, mutations)
     end
 
     -- Check Backpack
-    for _, item in ipairs(Backpack:GetChildren()) do
+    for _, item in ipairs(_S.Backpack:GetChildren()) do
         if item:IsA("Tool") and item:GetAttribute("b") == "j" then
             local fname = item:GetAttribute("f")
             if fname == fruitname and hasAllMutations(item) then
@@ -2439,7 +2460,7 @@ local function FindFruitInBackpack(fruitname, mutations)
     end
 
     -- Check Character (holding)
-    for _, item in ipairs(Character:GetChildren()) do
+    for _, item in ipairs(_S.Character:GetChildren()) do
         if item:IsA("Tool") and item:GetAttribute("b") == "j" then
             local fname = item:GetAttribute("f")
             if fname == fruitname and hasAllMutations(item) then
@@ -2452,7 +2473,7 @@ local function FindFruitInBackpack(fruitname, mutations)
 end
 
 local function FindFruitSeedInBackpack(fruitname)
-    for _, item in ipairs(Backpack:GetChildren()) do 
+    for _, item in ipairs(_S.Backpack:GetChildren()) do 
         if item:IsA("Tool") and item:GetAttribute("b") == "n" then
             local is_fav = item:GetAttribute("d")
             local f_uuid = item:GetAttribute("c")
@@ -2469,7 +2490,7 @@ local function FindFruitSeedInBackpack(fruitname)
     
     -- player maybe holding this tool check it
     -- Then check Character (player might be holding it)
-    for _, item in ipairs(Character:GetChildren()) do
+    for _, item in ipairs(_S.Character:GetChildren()) do
         if item:IsA("Tool") and item:GetAttribute("b") == "n" then
             local fname = item:GetAttribute("f")
             local Seed = item:GetAttribute("Seed")
@@ -2526,8 +2547,8 @@ local function PlantRequiredFruitsForAscension(fruit_name)
             -- recheck if we now have this
             if HasPlantByName(fruit_name) then
                 --print("Fruit Planted successully!")
-                if not player_humanoid then return end
-                player_humanoid:UnequipTools()
+                if not _S.player_humanoid then return end
+                _S.player_humanoid:UnequipTools()
                 task.wait(0.2)
                 break
             else
@@ -2544,7 +2565,7 @@ end
 
 
 function IsAscensionCountDownOver()
-    local RebirthConfirmation = PlayerGui.RebirthConfirmation
+    local RebirthConfirmation = _S.PlayerGui.RebirthConfirmation
     local success3, a_text = pcall(function()
         return RebirthConfirmation.Frame.Frame.AscensionTimer.ContentText
     end)
@@ -2564,7 +2585,7 @@ function IsAscensionCountDownOver()
     -- your original rule: if less than 4 (e.g. "3" or "0") -> allow ascend
     if numeric < 4 then
         --print("is less than 4")
-        return true
+        --return true
     end
 
      local successv, is_vis = pcall(function()
@@ -2584,7 +2605,7 @@ local function AutoAscension()
     local fruit_name
     local mutations_fs = {}
     local can_ascend = false
-    local RebirthConfirmation = PlayerGui.RebirthConfirmation
+    local RebirthConfirmation = _S.PlayerGui.RebirthConfirmation
 
     -- what mutation the fruit needs.
     --  this can be array , e.g WindStruct,Sun
@@ -2613,10 +2634,10 @@ local function AutoAscension()
     task.wait(0.1)
     
     --fruit_name = "Carrot" -- testing
+     -- check if we have this fruit in the backpack or are we holding it
+    local requried_tool = FindFruitInBackpack(fruit_name, mutations_fs)
     
-    if can_ascend then
-        -- check if we have this fruit in the backpack or are we holding it
-        local requried_tool = FindFruitInBackpack(fruit_name, mutations_fs)
+    if can_ascend and requried_tool then 
         if requried_tool then
             -- we have this fruit in the backpack.
             -- claim rewards
@@ -2625,17 +2646,16 @@ local function AutoAscension()
             print("Ascension Completed")
             UpdateAscenStats("✅ Ascension Completed")
             task.wait(5)
-        else
-            if HasPlantByName(fruit_name) then
-                --print("We have this plant: " .. fruit_name)
-                -- collect fruit matching what is required, ignores fav fruit.
-                CollectFruitUsingNameAndMut(fruit_name, mutations_fs);
-            else
-                --warn("Dont have this plant, place one.")
-                PlantRequiredFruitsForAscension(fruit_name)
-            end
         end
     else
+        if HasPlantByName(fruit_name) then
+            --print("We have this plant: " .. fruit_name)
+            -- collect fruit matching what is required, ignores fav fruit.
+            CollectFruitUsingNameAndMut(fruit_name, mutations_fs);
+        else
+            --warn("Dont have this plant, place one.")
+            PlantRequiredFruitsForAscension(fruit_name)
+        end
         UpdateAscenStats("❌ Not ready for Ascension")
         task.wait(3)
     end
@@ -2643,13 +2663,13 @@ local function AutoAscension()
 
     -- print("AscensionTimer: ", value3)
     -- print("Fruit name: ", fruit_name)
-    -- print("Mutations: ", HttpService:JSONEncode(mutations_fs))
+    -- print("Mutations: ", _S.HttpService:JSONEncode(mutations_fs))
     -- print("Can Ascend: " , can_ascend)
 
 end
  
 --  task that runs Ascension
-if not _G.AutoAscensionTask or not _G.AutoAscensionTask.Running then
+if not _G.AutoAscensionTask then
     _G.AutoAscensionTask = task.spawn(function()
         while true do
             task.wait(0.5)
@@ -2700,8 +2720,8 @@ end
 
 local function placeMissingEggs(myFarm)
     --print("Starting to place eggs...")
-    lbl_stats:SetText("Starting to place eggs")
-    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+    UPDATE_LABELS_FUNC.UpdateSetLblStats("Starting to place eggs")
+    local humanoid = _S.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
     humanoid:UnequipTools()
     task.wait(0.1)
@@ -2739,13 +2759,13 @@ local function placeMissingEggs(myFarm)
         if egg_on_farm >= user_max_egg or is_max_eggs_reached then
             is_max_eggs_reached = true
             --warn("Max eggs placed")
-            lbl_stats:SetText("Max eggs placed")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Max eggs placed")
             break
         end
 
         if #availablePositions == 0 then
             --warn("No more predefined placement spots available.")
-            lbl_stats:SetText("No more spots available.")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("No more spots available.")
             is_max_eggs_reached = true
             break
         end
@@ -2760,15 +2780,15 @@ local function placeMissingEggs(myFarm)
         humanoid:EquipTool(eggToolToEquip)
         task.wait(0.1) -- Brief wait to ensure the parent property updates.
 
-        if eggToolToEquip.Parent == Character then
+        if eggToolToEquip.Parent == _S.Character then
             -- Success!
             if FSettings.is_test == false then
-                PetEggService:FireServer("CreateEgg", placePos)
+                _S.PetEggService:FireServer("CreateEgg", placePos)
             end
             print("Placed a '" .. eggToolToEquip:GetAttribute("h") .. "' egg.")
         else
             -- Failure.
-            lbl_stats:SetText("Failed to equip the egg tool")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to equip the egg tool")
             --warn("Failed to equip the egg tool: " )
             task.wait(0.3)
             -- The loop will automatically try again with a fresh tool.
@@ -2787,7 +2807,7 @@ end
  -- Favorite pets
 local function FavoritePets()
     print("Starting Favourite Process...")
-    lbl_stats:SetText("Starting Favourite Process...")
+    UPDATE_LABELS_FUNC.UpdateSetLblStats("Starting Favourite Process...")
     
     
     -- Helper function to check if a pet should be sold
@@ -2801,7 +2821,7 @@ local function FavoritePets()
     end
     
     local petsToFav = {}
-    local pets_inbg = Backpack:GetChildren()
+    local pets_inbg = _S.Backpack:GetChildren()
     for _, tool in ipairs(pets_inbg) do
         if tool:IsA("Tool") and tool:GetAttribute("ItemType") == "Pet" and tool:GetAttribute("d") == false then 
             local petName, petWeight, petAge = extractPetDetails(tool.Name)
@@ -2850,7 +2870,7 @@ local function FavoritePets()
 
     if #petsToFav == 0 then
         print("No pets needed favouriting.")
-        lbl_stats:SetText("No pets needed favouriting.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("No pets needed favouriting.")
         return true
     end
 
@@ -2859,9 +2879,9 @@ local function FavoritePets()
     -- Fire requests
     for _, pet in ipairs(petsToFav) do
         print("Favouriting: " .. pet.Name)
-        lbl_stats:SetText("Favouriting: " .. pet.Name)
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Favouriting: " .. pet.Name)
         if FSettings.is_test == false then
-            FavItem:FireServer(pet)
+            _S.FavItem:FireServer(pet)
         end
        
     end
@@ -2891,7 +2911,7 @@ local function FavoritePets()
         return false
     else
         print("🎉 All pets successfully favourited!")
-        lbl_stats:SetText("All pets successfully favourited!")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("All pets successfully favourited!")
         return true
     end
 end
@@ -2900,9 +2920,9 @@ end
  -- New sell all unfav pets
 local function SellAllPetsUnFavorite()
     --print("Sell All UnFav Process...")
-    lbl_stats:SetText("Sell All UnFav Process...")
+    UPDATE_LABELS_FUNC.UpdateSetLblStats("Sell All UnFav Process...")
     if FSettings.is_test == false then
-        SellAllPetsRemote:FireServer();
+        _S.SellAllPetsRemote:FireServer();
     end
     
     task.wait(1)
@@ -2912,9 +2932,9 @@ end
 
 -- Helper function to check if a pet with a given UUID is still visible
 local function IsPetStillActiveInContainer(uuid)
-    local contiems = petsContainer:GetChildren()
+    local contiems = _S.petsContainer:GetChildren()
     for _, pet in ipairs(contiems) do
-        if pet:GetAttribute("UUID") == uuid and pet:GetAttribute("OWNER") == LocalPlayer.Name then
+        if pet:GetAttribute("UUID") == uuid and pet:GetAttribute("OWNER") == _S.LocalPlayer.Name then
             return true -- Yes, it's still here
         end
     end
@@ -2925,16 +2945,16 @@ end
 local function UnEquipAllPets()
     --print("Scanning for active pets...")
     local petsToConfirm = {} -- A list to track the UUIDs we are unequipping
-    local petsarray = petsContainer:GetChildren()
+    local petsarray = _S.petsContainer:GetChildren()
     -- STEP 1: Fire all unequip requests in a rapid burst
     for _, petmoverpart in ipairs(petsarray) do
-        if petmoverpart:IsA("Part") and petmoverpart:GetAttribute("OWNER") == LocalPlayer.Name then
+        if petmoverpart:IsA("Part") and petmoverpart:GetAttribute("OWNER") == _S.LocalPlayer.Name then
             local xuuid = petmoverpart:GetAttribute("UUID")
             if xuuid then
                 -- Add the UUID to our tracking list
                 table.insert(petsToConfirm, xuuid) 
                 -- Fire the event for this pet
-                petsServiceRemote:FireServer("UnequipPet", xuuid)
+                _S.petsServiceRemote:FireServer("UnequipPet", xuuid)
                 task.wait(0.3)
             end
         end
@@ -2998,7 +3018,7 @@ local function EquipPets(array_uuids)
     local petsToConfirm = {}
     
     for _, uuid in ipairs(array_uuids) do
-        petsServiceRemote:FireServer("EquipPet", uuid, placementCF); 
+        _S.petsServiceRemote:FireServer("EquipPet", uuid, placementCF); 
         table.insert(petsToConfirm, uuid)
         task.wait(0.3)
     end
@@ -3053,7 +3073,7 @@ local function HatchAllEggsAvailable(hatch_all)
 
     if not mObjects_Physical then
         warn("issue finding Objects_Physical")
-        lbl_stats:SetText("Issue finding eggs on farm")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Issue finding eggs on farm")
         return false
     end
     local is_hatch_all = true
@@ -3083,7 +3103,7 @@ local function HatchAllEggsAvailable(hatch_all)
             local eggName = eggModel:GetAttribute("EggName") or "Unknown Egg"
             local uuid = eggModel:GetAttribute("OBJECT_UUID")
             print("   - Found a ready egg: " .. eggName .. ". Firing event...")
-            lbl_stats:SetText("Hatching: " .. eggName)
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching: " .. eggName)
             
             local can_hatch_this = true
             -- prevent egg hatching if this is a big or huge pet according to weight set
@@ -3094,7 +3114,7 @@ local function HatchAllEggsAvailable(hatch_all)
                 if _weight >= FSettings.sell_weight then
                     -- we can't hatch this egg.
                     can_hatch_this = false
-                    lbl_stats:SetText("Cant hatch egg, weight is high," .. _petname)
+                    UPDATE_LABELS_FUNC.UpdateSetLblStats("Cant hatch egg, weight is high," .. _petname)
                     -- add to the array
                     table.insert(big_pets_hatch_models,eggModel)
                     --task.wait(4)
@@ -3104,7 +3124,7 @@ local function HatchAllEggsAvailable(hatch_all)
             -- This is the direct and correct way to hatch the egg
             if FSettings.is_test == false then
                 if can_hatch_this then
-                    PetEggService:FireServer("HatchPet", eggModel)
+                    _S.PetEggService:FireServer("HatchPet", eggModel)
                 end
                 task.wait(0.1)
             end 
@@ -3129,7 +3149,7 @@ end
 
 
 local function fairySubmit()
-    GameEvents:WaitForChild("FairyService"):WaitForChild("SubmitFairyFountainAllPlants"):FireServer() 
+    _S.GameEvents:WaitForChild("FairyService"):WaitForChild("SubmitFairyFountainAllPlants"):FireServer() 
 end
 
 
@@ -3144,7 +3164,7 @@ end
 
 local function MakeFruitsFav(list)
     for _, item in ipairs(list) do
-        FavItem:FireServer(item)
+        _S.FavItem:FireServer(item)
     end
 end
 
@@ -3155,7 +3175,7 @@ local function GetAllFruitsToSell()
     local sell_candidates  = {} 
     
     -- Find all fruits to fruit
-    for _, item in ipairs(Backpack:GetChildren()) do
+    for _, item in ipairs(_S.Backpack:GetChildren()) do
         if item:IsA("Tool") and item:GetAttribute("b") == "j" and item:GetAttribute("d") == false then
             local fname = item:GetAttribute("f");
             local fruit_uuid = item:GetAttribute("c");
@@ -3215,13 +3235,13 @@ local function GetAllFruitsToSell()
     print("Selling all fruits...")
     
     -- teleport
-    local hrp = Character:WaitForChild("HumanoidRootPart")
+    local hrp = _S.Character:WaitForChild("HumanoidRootPart")
     -- Save the current CFrame
     local originalCFrame = hrp.CFrame
     local targetCFrame = CFrame.new( 87.0313492, 2.99999976, 0.724588692)
     TeleportPlayerToCFrame(targetCFrame)
     task.wait(0.2)
-    Sell_Inventory:FireServer()
+    _S.Sell_Inventory:FireServer()
     -- use sell list here
     task.wait(1)
     MakeFruitsFav(fav_list) -- call again to unfav fruits after selling
@@ -3264,11 +3284,11 @@ local function mutCheck(fruit)
 end
 
 local function LabelUpdateCollectFruitStats(_txt)
-    if not lbl_fruit_collect_live then 
+    if not UI_LABELS.lbl_fruit_collect_live then 
         print(_txt)
         return 
     end
-    lbl_fruit_collect_live:SetText(_txt)
+    UI_LABELS.lbl_fruit_collect_live:SetText(_txt)
 end
 
 local BATCH_SIZE = 3 
@@ -3344,7 +3364,7 @@ local function collectFilteredFruits()
             end 
             info1 = string.format("Collecting batch %d/%d...", (i-1)/BATCH_SIZE + 1, math.ceil(#allFruitsToCollect/BATCH_SIZE))
             LabelUpdateCollectFruitStats(info1)
-            collectEvent:FireServer(batch)
+            _S.collectEvent:FireServer(batch)
             task.wait(0.2)
             OnBatchCollected()
         end
@@ -3386,13 +3406,13 @@ local function rejoinS()
     end
     warn("Rejoin...");
     if FSettings.is_test == false then  
-        TeleportService:Teleport(game.PlaceId)
+        _S.TeleportService:Teleport(game.PlaceId)
     end
 end
 
 -- UI
 local function UpdateUITeamCount()
-    if not lbl_selected_team1_count or not lbl_selected_team2_count or not lbl_selected_team3_count or not lbl_selected_team4_count then
+    if not UI_LABELS.lbl_selected_team1_count or not UI_LABELS.lbl_selected_team2_count or not UI_LABELS.lbl_selected_team3_count or not UI_LABELS.lbl_selected_team4_count then
         return
     end
 
@@ -3401,10 +3421,10 @@ local function UpdateUITeamCount()
     local tm3_count = #FSettings.team3
     local tm4_count = #FSettings.team4
     local total_p = GetMaxPetCapacity()
-    lbl_selected_team1_count:SetText("Selected: " .. tm1_count .. "/" .. total_p)
-    lbl_selected_team2_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
-    lbl_selected_team3_count:SetText("Selected: " .. tm3_count .. "/" .. total_p)
-    lbl_selected_team4_count:SetText("Selected: " .. tm4_count .. "/" .. total_p)
+    UI_LABELS.lbl_selected_team1_count:SetText("Selected: " .. tm1_count .. "/" .. total_p)
+    UI_LABELS.lbl_selected_team2_count:SetText("Selected: " .. tm2_count .. "/" .. total_p)
+    UI_LABELS.lbl_selected_team3_count:SetText("Selected: " .. tm3_count .. "/" .. total_p)
+    UI_LABELS.lbl_selected_team4_count:SetText("Selected: " .. tm4_count .. "/" .. total_p)
 end
 
 
@@ -3441,7 +3461,7 @@ local function SessionLoop()
         
         UpdatePlayerStats() -- reset any buffs
 
-        lbl_stats:SetText("Checking for ready eggs...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Checking for ready eggs...")
         print("SessionLoop: Checking for ready eggs...")
         task.wait(0.4)
         
@@ -3452,23 +3472,23 @@ local function SessionLoop()
         task.wait(0.5);
         local eggs_onfarm = GetCountEggsOnFarm()
         task.wait(0.5);
-        lbl_stats:SetText("Check Egg Reduction Team for placement..." .. tostring(is_ready_hatch))
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Check Egg Reduction Team for placement..." .. tostring(is_ready_hatch))
         
         if FSettings.disable_team3 == false then
             -- Place team only if eggs need reduction
             if is_ready_hatch == false then
                 -- place team
-                 lbl_stats:SetText("Placing egg reduction team..")
+                 UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing egg reduction team..")
                 if UnEquipAllPets() == false then
-                    lbl_stats:SetText("[reduction team] Failed to unequip. Retrying cycle in 5s...")
+                    UPDATE_LABELS_FUNC.UpdateSetLblStats("[reduction team] Failed to unequip. Retrying cycle in 5s...")
                     print("reduction team Error: Failed to unequip pets. Retrying cycle.")
                     task.wait(5)
                     continue -- Restart the loop
                 end
-                lbl_stats:SetText("[T]Placing egg reduction team...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("[T]Placing egg reduction team...")
                 task.wait(0.3)
                 if not EquipPets(FSettings.team3) then
-                    lbl_stats:SetText("Team 3 failed. Retrying cycle in 5s...")
+                    UPDATE_LABELS_FUNC.UpdateSetLblStats("Team 3 failed. Retrying cycle in 5s...")
                     print("SessionLoop Error: Failed to place egg reduction team. Retrying cycle.")
                     task.wait(5)
                     continue -- Restart the loop
@@ -3480,7 +3500,7 @@ local function SessionLoop()
 
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch() == false and not is_forced_stop and FSettings.is_running do
-            lbl_stats:SetText("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
             task.wait(5) -- Wait 2 seconds before checking again
@@ -3492,7 +3512,7 @@ local function SessionLoop()
         end
 
         print("SessionLoop: Eggs are ready! Starting cycle.")
-        lbl_stats:SetText("Eggs ready! Starting cycle.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Eggs ready! Starting cycle.")
         task.wait(0.5)
         BeforeUpdateEggCountForAllEggs()
  
@@ -3500,25 +3520,25 @@ local function SessionLoop()
         -- Place Hatching Team (Team 2)
         if FSettings.disable_team2 == false then
             if UnEquipAllPets() == false then
-                lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to unequip. Retrying cycle in 5s...")
                 print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
                 task.wait(5)
                 continue -- Restart the loop
             end
             task.wait(0.2)
-            lbl_stats:SetText("Placing hatching team...")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing hatching team...")
             if not EquipPets(FSettings.team2) then
-                lbl_stats:SetText("Team 2 failed. Retrying cycle in 5s...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Team 2 failed. Retrying cycle in 5s...")
                 print("SessionLoop Error: Failed to place hatching team. Retrying cycle.")
                 task.wait(5)
                 continue -- Restart the loop
             end
         end
 
-        lbl_stats:SetText("Waiting for hatch buffs...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Waiting for hatch buffs...")
         task.wait(3.5)
 
-        lbl_stats:SetText("Hatching all available eggs...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching all available eggs...")
         UpdatePlayerStats() 
         tracked_bonus_egg_recovery = PlayerSecrets.EggRecoveryChance
         HatchAllEggsAvailable(false) -- HATCH EGGS, provide false, we can't hatch big pets here
@@ -3528,7 +3548,7 @@ local function SessionLoop()
             --is_forced_stop = true
             --break
         end
-        lbl_stats:SetText("Hatching Complete.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching Complete.")
         task.wait(2)
         
         
@@ -3542,15 +3562,15 @@ local function SessionLoop()
             -- Team 4 is big size pet team
             if FSettings.disable_team4 == false then 
                 if UnEquipAllPets() == false then
-                    lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
+                    UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to unequip. Retrying cycle in 5s...")
                     print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
                     task.wait(5)
                     continue -- Restart the loop
                 end
                 task.wait(0.2)
-                lbl_stats:SetText("Placing pet size team...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing pet size team...")
                 if not EquipPets(FSettings.team4) then
-                    lbl_stats:SetText("Team 4 failed. Retrying cycle in 5s...")
+                    UPDATE_LABELS_FUNC.UpdateSetLblStats("Team 4 failed. Retrying cycle in 5s...")
                     print("SessionLoop Error: Failed to place hatching team. Retrying cycle.")
                     task.wait(5)
                     continue -- Restart the loop
@@ -3558,13 +3578,13 @@ local function SessionLoop()
             end
             
           
-            lbl_stats:SetText("Hatching big pets.");
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching big pets.");
             task.wait(3.9) -- wait for buffs
             UpdatePlayerStats() --  update the player stats so we know if buffs were applied etc
             pet_size_bonus = PlayerSecrets.PetEggHatchSizeBonus
             
             HatchAllEggsAvailable(true) -- set to true to hatch all eggs including big
-            lbl_stats:SetText("Hatching Big Pets Complete.")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching Big Pets Complete.")
             task.wait(2) -- wait a bit after hatching
            
         end
@@ -3572,9 +3592,9 @@ local function SessionLoop()
         
  
          --================= SELL CYCLE =================
-        lbl_stats:SetText("Favouriting Pets...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Favouriting Pets...")
         if FavoritePets() == false then
-            lbl_stats:SetText("Failed to fav. Retrying cycle in 5s...")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to fav. Retrying cycle in 5s...")
             print("SessionLoop Error: Failed to favorite pets. Retrying cycle.")
             task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
@@ -3584,39 +3604,39 @@ local function SessionLoop()
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
             if UnEquipAllPets() == false then
-                lbl_stats:SetText("Failed to unequip. Retrying cycle in 5s...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to unequip. Retrying cycle in 5s...")
                 print("SessionLoop Error: Failed to unequip pets. Retrying cycle.")
                 task.wait(5)
                 continue -- Restart the loop
             end
-            lbl_stats:SetText("Placing selling team...")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing selling team...")
             if not EquipPets(FSettings.team1) then
-                lbl_stats:SetText("Team 1 failed. Retrying cycle in 5s...")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Team 1 failed. Retrying cycle in 5s...")
                 print("SessionLoop Error: Failed to place selling team. Retrying cycle.")
                 task.wait(5)
                 continue -- Restart the loop
             end
         end
 
-        lbl_stats:SetText("Selling pets...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Selling pets...")
         task.wait(6) -- Wait for sell buffs to apply
         UpdatePlayerStats()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
         task.wait(1)
-        lbl_stats:SetText("Selling complete.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Selling complete.")
         UpdatePetData()
         
         --================= CLEANUP AND REPORTING ================= 
         task.wait(0.4)
 
-        lbl_stats:SetText("Placing new eggs...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing new eggs...")
         --UnEquipAllPets()
         placeMissingEggs(mFarm) -- This function will set is_forced_stop if it runs out of eggs.
         task.wait(0.5)
 
         if is_forced_stop then -- CRITICAL STOP: This cannot be recovered by retrying.
-            lbl_stats:SetText("Out of eggs to place. Stopping farm.")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Out of eggs to place. Stopping farm.")
             --break
         end  
         
@@ -3638,19 +3658,19 @@ local function SessionLoop()
         end
 
         if canSendReport then
-            lbl_stats:SetText("Sending report...")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Sending report...")
             HatchReport()
             task.wait(0.3)
         end
 
-        lbl_stats:SetText("Cycle finished. Waiting for next batch.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Cycle finished. Waiting for next batch.")
         print("SessionLoop: Cycle finished. Looping again.")
         task.wait(0.3) -- A brief pause before checking for ready eggs again
 
     end -- End of main while loop
 
     -- Cleanup code for when the loop is stopped
-    lbl_stats:SetText("Session-based farm stopped.")
+    UPDATE_LABELS_FUNC.UpdateSetLblStats("Session-based farm stopped.")
     FSettings.is_running = false
     SaveData()
     if main_thread then
@@ -3676,12 +3696,12 @@ local function MainLoop()
     
     while not is_forced_stop and FSettings.is_running and FSettings.is_auto_rejoin do
  
-        lbl_stats:SetText("Starting egg count")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Starting egg count")
         -- if no eggs to hatch then must rejoin. unless stopped in settings
         --  check if there are any eggs to even hatch?
         if CheckAnyEggsToHatch() == false then
             -- no eggs to hatch, rejoin
-            lbl_stats:SetText("No eggs to hatch.. rejoin")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("No eggs to hatch.. rejoin")
             print("No eggs to hatch.. rejoin?")
             task.wait(2); -- wait in case user want to cancel
             rejoinS();
@@ -3693,7 +3713,7 @@ local function MainLoop()
 
         local serverv = GetServerVersion();
         if extractFirstNumber(serverv) > 1760 then
-            --lbl_stats:SetText("Wrong server version.. rejoin") 
+            --UPDATE_LABELS_FUNC.UpdateSetLblStats("Wrong server version.. rejoin") 
             --task.wait(2); -- wait in case user want to cancel
             --rejoinS();
             --break
@@ -3705,10 +3725,10 @@ local function MainLoop()
 
         --================= SELL 
         -- Fav any pets 
-        lbl_stats:SetText("Favorite Pets")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Favorite Pets")
         local is_fav_done = FavoritePets()
         if is_fav_done == false then
-            lbl_stats:SetText("Failed to fav, rejoin.")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Failed to fav, rejoin.")
             task.wait(1);
             rejoinS();
             break
@@ -3720,18 +3740,18 @@ local function MainLoop()
         if FSettings.disable_team1 == false then 
             -- remove any pets equipped
             if UnEquipAllPets() == false then  rejoinS(); break end
-            lbl_stats:SetText("UnEquip All Pets")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("UnEquip All Pets")
             task.wait(1);
             
             
-            lbl_stats:SetText("Starting to place team 1")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Starting to place team 1")
             -- add team 1
             if EquipPets(FSettings.team1) then
                 print("team 1 loaded")
-                lbl_stats:SetText("team 1 loaded")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("team 1 loaded")
             else
                 -- something went wrong. restart the process
-                lbl_stats:SetText("team 1 failed to load")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("team 1 failed to load")
                 rejoinS();
                 break
             end
@@ -3740,7 +3760,7 @@ local function MainLoop()
         
         
         -- start sell process, we can't sell unless team 1 is loaded
-        lbl_stats:SetText("Start selling pets")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Start selling pets")
         task.wait(2) -- wait for buff to activate
         -- Track Bonus at this point
         UpdatePlayerStats()
@@ -3748,7 +3768,7 @@ local function MainLoop()
         tracked_bonus_egg_sell_refund = PlayerSecrets.PetSellEggRefundChance
         SellAllPetsUnFavorite()
         task.wait(0.3)
-        lbl_stats:SetText("Selling complete.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Selling complete.")
         AfterUpdateEggCountForAllEggs() -- update counts
         task.wait(1)
         got_eggs_back = FindEggLostGainDiff() -- This will let us track how many eggs we gain
@@ -3762,27 +3782,27 @@ local function MainLoop()
         -- Team 2 placement
         if FSettings.disable_team2 == false then
             -- add team 2
-            lbl_stats:SetText("UnEquip All Pets.")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("UnEquip All Pets.")
             if UnEquipAllPets() == false then rejoinS(); break end
             task.wait(0.2)
-            lbl_stats:SetText("Starting to place team 2")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Starting to place team 2")
             if EquipPets(FSettings.team2) then
-                lbl_stats:SetText("team 2 loaded")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("team 2 loaded")
                 print("team 2 loaded")
             else
                 -- something went wrong. restart the process
-                lbl_stats:SetText("team 2 failed to load")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("team 2 failed to load")
                 rejoinS();
                 return
             end
         end
     
         
-        lbl_stats:SetText("Waiting...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Waiting...")
         task.wait(3.8); -- await .. wait for niho (incase its added), this pet can take time - leave this as is
  
         -- Hatch all eggs, we can't hatch unless team 2 is loaded 
-        lbl_stats:SetText("Hatch All Eggs Available...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatch All Eggs Available...")
         
       -- Track Bonus at this point
         UpdatePlayerStats()
@@ -3795,22 +3815,22 @@ local function MainLoop()
             SendErrorMessage("Pet Inventory is full!")
             task.wait(1)
         end
-        lbl_stats:SetText("Hatch Complete...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatch Complete...")
        
         task.wait(1);
         local recovered_eggs = GetCountEggsOnFarm()
         task.wait(0.3); -- await
         -- now place eggs
-        lbl_stats:SetText("Placing new eggs.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Placing new eggs.")
         UnEquipAllPets()
         placeMissingEggs(mFarm);
         task.wait(0.2)
        
-        lbl_stats:SetText("Done Placing new eggs.")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Done Placing new eggs.")
         task.wait(0.3); -- await
         
         
-        lbl_stats:SetText("Fav Pets")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Fav Pets")
         FavoritePets();
         task.wait(0.2)
         
@@ -3834,11 +3854,11 @@ local function MainLoop()
         
         
         if canSendReport == true then
-            lbl_stats:SetText("Sending report")
+            UPDATE_LABELS_FUNC.UpdateSetLblStats("Sending report")
             HatchReport();
             task.wait(2.5); -- await
         end
-        lbl_stats:SetText("Rejoin...")
+        UPDATE_LABELS_FUNC.UpdateSetLblStats("Rejoin...")
         rejoinS(); -- rejoin server
         break
         
@@ -3857,7 +3877,7 @@ end
 --  Create dropdowns
 
 local Window = Library:CreateWindow({
-    Title = "ExoticHub",
+    Title = "Exotic Hub",
     Footer = "v1.1",
     ToggleKeybind = Enum.KeyCode.RightControl,
     Center = true,
@@ -3881,15 +3901,21 @@ local function HomeDashboardUi()
     
     -- Add a groupbox to the left side
     local GroupAutoFarm = MainTab:AddLeftGroupbox("Auto Hatch", "calendar-sync")
-    
     -- Text for stats
-        lbl_stats = GroupAutoFarm:AddLabel({
+    UI_LABELS.lbl_stats = GroupAutoFarm:AddLabel({
         Text = "Stopped",
         DoesWrap = true
     })
     
+    GroupAutoFarm:AddDivider()
+    
+    GroupAutoFarm:AddLabel({
+        Text = "❗ [Warning] Be sure to 💖 favourite all important pets before running this.",
+        DoesWrap = true
+    })
+    
     local StartAutoFarmButton = GroupAutoFarm:AddButton({
-        Text = "Start Auto-Join Farm",
+        Text = "Start Auto Hatching",
         Func = function()
             if not main_thread then
                 FSettings.is_running = true
@@ -3924,7 +3950,7 @@ local function HomeDashboardUi()
             if main_thread then
                 task.cancel(main_thread) -- Stop the running thread
                 main_thread = nil
-                lbl_stats:SetText("Stopped By User")
+                UPDATE_LABELS_FUNC.UpdateSetLblStats("Stopped By User")
             end
         end,
     })
@@ -3993,19 +4019,19 @@ local function PetTeamsUi()
         DoesWrap = true
     })
     
-    lbl_selected_team1_count = GroupBoxSellingTeam:AddLabel("-")
-    lbl_selected_team2_count = GroupBoxHatchingTeam:AddLabel("-")
-    lbl_selected_team3_count = GroupBoxEggReductionTeam:AddLabel("-")
-    lbl_selected_team4_count = GroupBoxEggPetSizeTeam:AddLabel("-")
+    UI_LABELS.lbl_selected_team1_count = GroupBoxSellingTeam:AddLabel("-")
+    UI_LABELS.lbl_selected_team2_count = GroupBoxHatchingTeam:AddLabel("-")
+    UI_LABELS.lbl_selected_team3_count = GroupBoxEggReductionTeam:AddLabel("-")
+    UI_LABELS.lbl_selected_team4_count = GroupBoxEggPetSizeTeam:AddLabel("-")
    
     UpdateUITeamCount()
     
     -- Team 1 , selling team 
     local team1data = ConvertUUIDToPetNamesPairs(FSettings.team1)
     
-    --- print("pets: ", HttpService:JSONEncode(petCache));
-    print("team1: ", HttpService:JSONEncode(team1data));
-    MultiDropdownSellTeam = GroupBoxSellingTeam:AddDropdown("dropdownSellTeam", {
+    --- print("pets: ", _S.HttpService:JSONEncode(petCache));
+    print("team1: ", _S.HttpService:JSONEncode(team1data));
+    UI_LABELS.MultiDropdownSellTeam = GroupBoxSellingTeam:AddDropdown("dropdownSellTeam", {
         Values = GetPetsCacheAsTable(),
         Default = {}, -- Default selected values for multi-select
         Multi = true,
@@ -4091,8 +4117,8 @@ local function PetTeamsUi()
 
     -- Team 2, hatching team
     local team2data = ConvertUUIDToPetNamesPairs(FSettings.team2)
-    print("team2: ", HttpService:JSONEncode(team2data));
-    MultiDropdownHatchTeam = GroupBoxHatchingTeam:AddDropdown("dropdownHatchTeam", {
+    print("team2: ", _S.HttpService:JSONEncode(team2data));
+    UI_LABELS.MultiDropdownHatchTeam = GroupBoxHatchingTeam:AddDropdown("dropdownHatchTeam", {
         Values = GetPetsCacheAsTable(),
         Default = {}, -- Default selected values for multi-select
         Multi = true,
@@ -4115,7 +4141,7 @@ local function PetTeamsUi()
             if count_vals > GetMaxPetCapacity() then
                 Library:Notify("Team size maxed", 2) 
             else
-                warn("Saved Team 2 called", HttpService:JSONEncode(Values))
+                warn("Saved Team 2 called", _S.HttpService:JSONEncode(Values))
                 
                 if is_value_selection_update == false then 
                     FSettings.team2 = tmp_tbl
@@ -4181,8 +4207,8 @@ local function PetTeamsUi()
     
       -- Team 3, egg time reduction team
     local team3data = ConvertUUIDToPetNamesPairs(FSettings.team3)
-    print("team3: ", HttpService:JSONEncode(team3data));
-    MultiDropdownEggReductionTeam = GroupBoxEggReductionTeam:AddDropdown("dropdownEggReductionTeam", {
+    print("team3: ", _S.HttpService:JSONEncode(team3data));
+    UI_LABELS.MultiDropdownEggReductionTeam = GroupBoxEggReductionTeam:AddDropdown("dropdownEggReductionTeam", {
         Values = GetPetsCacheAsTable(),
         Default = {}, -- Default selected values for multi-select
         Multi = true,
@@ -4205,7 +4231,7 @@ local function PetTeamsUi()
             if count_vals > GetMaxPetCapacity() then
                 Library:Notify("Team size maxed", 2)
             else
-                --warn("Saved Team 3 called", HttpService:JSONEncode(Values))
+                --warn("Saved Team 3 called", _S.HttpService:JSONEncode(Values))
                 
                 if is_value_selection_update == false then
                     FSettings.team3 = tmp_tbl
@@ -4270,9 +4296,9 @@ local function PetTeamsUi()
     -- Team 4 , pet size team 
     local team4data = ConvertUUIDToPetNamesPairs(FSettings.team4)
     
-    --- print("pets: ", HttpService:JSONEncode(petCache));
-    -- print("team4: ", HttpService:JSONEncode(team4data));
-    MultiDropdownEggPetSizeTeam = GroupBoxEggPetSizeTeam:AddDropdown("dropdownSellTeam", {
+    --- print("pets: ", _S.HttpService:JSONEncode(petCache));
+    -- print("team4: ", _S.HttpService:JSONEncode(team4data));
+    UI_LABELS.MultiDropdownEggPetSizeTeam = GroupBoxEggPetSizeTeam:AddDropdown("dropdownSellTeam", {
         Values = GetPetsCacheAsTable(),
         Default = {}, -- Default selected values for multi-select
         Multi = true,
@@ -4488,17 +4514,17 @@ local function SellSettingsUi()
     
     
       -- Hatch mode sell
-    local toggleHatchAgeModeReport = GroupBoxSellWeight:AddToggle("toggleHatchAgeModeReport", {
-        Text = "Ostrich Mode",
-        Default = FSettings.is_age_hatch_mode,
-        Tooltip = "Sells everything under age of " .. FSettings.hatch_mode_age_to_keep,
-        Callback = function(Value)
-            FSettings.is_age_hatch_mode = Value
-            print("Toggle changed to:", Value)
-            SaveData()
-            Library:Notify("Updated Hatch Mode", 3)
-        end
-    })
+    -- local toggleHatchAgeModeReport = GroupBoxSellWeight:AddToggle("toggleHatchAgeModeReport", {
+    --     Text = "Ostrich Mode",
+    --     Default = FSettings.is_age_hatch_mode,
+    --     Tooltip = "Sells everything under age of " .. FSettings.hatch_mode_age_to_keep,
+    --     Callback = function(Value)
+    --         FSettings.is_age_hatch_mode = Value
+    --         print("Toggle changed to:", Value)
+    --         SaveData()
+    --         Library:Notify("Updated Hatch Mode", 3)
+    --     end
+    -- })
         
     
     GroupBoxSell:AddLabel({
@@ -4565,7 +4591,7 @@ local function MEventsUi()
     -- 2. Create groupboxes for organization
     local GroupBoxEventControls = UIEventsTab:AddLeftGroupbox("Event Controls", "toggle-left")
     
-     lbl_fariystats = GroupBoxEventControls:AddLabel({
+    UI_LABELS.lbl_fariystats = GroupBoxEventControls:AddLabel({
         Text = "Waiting for stats...", -- Initial placeholder text
         DoesWrap = true
     })
@@ -4593,7 +4619,7 @@ local function MEventsUi()
         DoesWrap = true
     })
     
-    lbl_ascenstats = GroupBoxAutoAscension:AddLabel({
+    UI_LABELS.lbl_ascenstats = GroupBoxAutoAscension:AddLabel({
         Text = "Current status", 
         DoesWrap = true
     })
@@ -4681,7 +4707,7 @@ local function MMutationUi()
 
     -- Stats Groupbox (Right)
     local StatsGroup = UIMutationTab:AddRightGroupbox("Live Stats", "line-chart")
-    lbl_fruit_collect_live = StatsGroup:AddLabel({
+    UI_LABELS.lbl_fruit_collect_live = StatsGroup:AddLabel({
         Text = "Status: Idle...",
         DoesWrap = true -- Allows the text to span multiple lines if needed
     })
@@ -5162,6 +5188,19 @@ SettingsUi()
 if not main_thread and FSettings.is_running and FSettings.is_auto_rejoin then
     -- start the task here
     if FSettings.is_session_based then
+        Library:Notify("Auto resume hatching in 10s", 7)
+        local countx = 10;
+        while countx > 0 do
+            countx = countx - 1
+            task.wait(1)
+            
+            if countx <= 1 then
+                if main_thread then
+                    break
+                end
+                main_thread = task.spawn(SessionLoop);
+            end
+        end
         
     end
     --main_thread = task.spawn(MainLoop);
