@@ -151,6 +151,12 @@ local FSettings = {
         -- Corrupted Zen Egg [dnt need]
         -- Premium Primal | Egg Premium Anti Bee Egg || Premium Oasis Egg (dont need these, same as normal versions)
         
+        
+          -- Fall Egg
+        ["Fall Egg"] = {
+            ["Robin"] = true, ["Badger"] = true, ["Grizzly Bear"] = true, ["Barn Owl"] = true, ["Swan"] = false
+        },
+        
         -- Common Summer Egg
         ["Common Summer Egg"] = {
             ["Starfish"] = true, ["Seagull"] = true, ["Crab"] = true
@@ -253,6 +259,7 @@ local FSettings = {
     },
    
     eggs_to_place_array = {
+        ["Fall Egg"] = {enabled = false, order = 1, color = Color3.fromRGB(255, 140, 0)}, -- pumpkin orange
         ["Common Egg"] = {enabled = true, order = 1, color = Color3.fromRGB(255, 0, 255)},       -- bright magenta
         ["Anti Bee Egg"] = {enabled = false, order = 2, color = Color3.fromRGB(255, 128, 0)},    -- neon orange
         ["Enchanted Egg"] = {enabled = false, order = 3, color = Color3.fromRGB(0, 255, 255)},    -- bright cyan
@@ -764,6 +771,7 @@ end
 
 --  these are pets. its only used to detect if we found and rare pet.
 local rare_pets = {
+    ["Swan"] = true,
     ["T-Rex"] = true,
     ["Brontosaurus"] = true,
     ["Spinosaurus"] = true,
@@ -2651,7 +2659,10 @@ local function AutoAscension()
         if HasPlantByName(fruit_name) then
             --print("We have this plant: " .. fruit_name)
             -- collect fruit matching what is required, ignores fav fruit.
-            CollectFruitUsingNameAndMut(fruit_name, mutations_fs);
+            if not requried_tool then
+                CollectFruitUsingNameAndMut(fruit_name, mutations_fs);
+            end
+            
         else
             --warn("Dont have this plant, place one.")
             PlantRequiredFruitsForAscension(fruit_name)
