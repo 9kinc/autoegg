@@ -33,6 +33,7 @@ _S.DataStream = _S.GameEvents.DataStream
 _S.PlantRemote = _S.GameEvents:WaitForChild("Plant_RE")
 _S.collectEvent = _S.GameEvents:WaitForChild("Crops"):WaitForChild("Collect")
 _S.FavItem = _S.GameEvents:WaitForChild("Favorite_Item")
+_S.BuyEventShopStock = _S.GameEvents:WaitForChild("BuyEventShopStock")
 
 -- Containers
 _S.petsContainer = _S.Workspace:WaitForChild("PetsPhysical")
@@ -46,6 +47,7 @@ _S.TravelingMerchantShop_UI = _S.PlayerGui:WaitForChild("TravelingMerchantShop_U
 -- Modules
 _S.SeedData = require(_S.ReplicatedStorage.Data.SeedData)
 _S.PetUtilities = require(_S.ReplicatedStorage.Modules.PetServices.PetUtilities)
+_S.PlantTraitsData = require(_S.ReplicatedStorage.Modules.PlantTraitsData)
 
 -- Webhook / Proxy
 _S.WEBHOOK_URL = ""
@@ -56,12 +58,13 @@ task.wait(2)
 -- [SETUP UI]
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/Library.lua"))()
 
+_S.CurentV = "v1.2"
+
 
 -- UI Labels
 local UI_LABELS = { 
     lbl_stats= nil,
-    lbl_fruit_collect_live= nil,
-    lbl_fariystats= nil,
+    lbl_fruit_collect_live= nil, 
     lbl_ascenstats= nil,
     lbl_selected_team1_count= nil,
     lbl_selected_team2_count= nil,
@@ -73,6 +76,12 @@ local UI_LABELS = {
     MultiDropdownHatchTeam= nil,
     MultiDropdownEggReductionTeam= nil,
     MultiDropdownEggPetSizeTeam= nil,
+    
+    -- fall martket event
+    lbl_fallevent_stats = nil,
+    lbl_fallevent_progress = nil,
+    lbl_fallevent_required_fruits = nil,
+    lbl_fallevent_fall_bloom = nil,
 }
  
 
@@ -80,6 +89,7 @@ local UI_LABELS = {
 
 -- save for mutations and others
 local FOtherSettings = {
+    is_fall_event_running = false,
     is_playerstats_running = true,
     web_api_key= "",
     auto_ascension = false,
@@ -90,7 +100,10 @@ local FOtherSettings = {
     collection_plants = {},
     sell_mutation_whitelist = {},
     sell_mutation_blacklist = {},
-    sell_fruit_list = {}
+    sell_fruit_list = {},
+    
+    -- event shops
+    fall_pets_shop = {},
 }
 
 
@@ -296,12 +309,29 @@ local FSettings = {
 
 -- Logs, contains all errors related logs, when something fails and saves and loads . maximum 100 log 
 local logs = {}
-  
+
 local user_s_key = ""
+
+
+-- holds all vars
+local Varz = {}
+local FallEventManager = {}
+local _FruitCollectorMachine = {}
+local _EventShops = {}
+
+----------------- Fall Event Shop Data
+Varz.FallEvent_Pet_Shop_ItemList = {["Fall Egg"] = false, ["Marmot"] = false,["Red Squirrel"] = false,["Space Squirrel"] = false, ["Sugar Glider"] = false }
+
+
+Varz.AscensionFruitName = nil
+Varz.AscensionFruitMutations = {}
+Varz.PlantsCategoryData = {}
+
+Varz.IS_HATCHING = false
 
 local garden_coins = 0
 local honey_coins = 0
-local sleep_ascend = 30
+local sleep_ascend = 3
 local is_garden_full_seed = false
 
 -- pet data for esp
@@ -616,6 +646,13 @@ local function GetKeyMutListUsingDir(ls)
     return _data
 end
 
+
+local function GetAllPlantsWithCategory()
+    Varz.PlantsCategoryData = _S.PlantTraitsData.Traits
+end
+
+GetAllPlantsWithCategory()
+
 --=== Build mutations list safely
 local function GetAllMutations() 
     local MutationHandler = require(game.ReplicatedStorage.Modules.MutationHandler)
@@ -874,6 +911,33 @@ local function unequipTools()
 end
 
 
+-- prevent fruits from being collected
+function IsPreventAscensionFruitRequirement(fruit)
+    if not fruit then 
+        return false
+    end
+    if not Varz.AscensionFruitName then
+        return false
+    end
+    
+    if fruit.Name ~= Varz.AscensionFruitName then
+        return false
+    end
+
+    for mutationName in pairs(Varz.AscensionFruitMutations) do
+        if not fruit:GetAttribute(mutationName) then
+            --return false -- missing one mutation → fail
+        end
+    end
+    return true -- all mutations present
+end
+
+
+local function extractFirstNumber(str)
+    local num = str:match("%d+")
+    return tonumber(num) or 0
+end
+
 -- Pet info
 local function GetPetDataByUUID(uuid)
     local _petData = _S.PetUtilities:GetPetByUUID(_S.LocalPlayer, uuid)
@@ -900,6 +964,149 @@ local function GetPetDataByUUID(uuid)
 
     return _petData;
 end 
+
+
+-------Event Shops
+
+_EventShops.FallBuyPetsShop = function ()
+    local shop_index = 3
+    local success, result = pcall(function()
+        for key, value in pairs(FOtherSettings.fall_pets_shop) do
+            if value then
+                _S.BuyEventShopStock:FireServer(key, shop_index)
+            end
+        end
+        return true
+    end)
+
+    if success then
+        return true
+    else
+        return false
+    end
+end
+
+
+
+
+---------- FRUIT Collection
+
+_FruitCollectorMachine.CollectFruitByNames = function(_fruitNames)
+    -- Collects fruits. key/val table passed in
+    local fruitsToCollect = {}
+    local max_per_collection = 40
+    
+    -- only leave 2 fruit for asen at max
+    local current_prevnt_asen = 0
+    local max_ascen = 2
+    
+    for _, plantModel in ipairs(Plants_Physical:GetChildren()) do
+        if plantModel:IsA("Model") and _fruitNames[plantModel.Name] then
+            if #fruitsToCollect >= max_per_collection then
+                -- do max_per_collection per call
+                print("reached limit")
+                break
+            end
+            
+            local is_fav = plantModel:GetAttribute("Favorited")
+            local p_maxAge = plantModel:GetAttribute("MaxAge")
+            
+            if p_maxAge then
+                local success1, p_age = pcall(function()
+                    return plantModel.Grow.Age.Value
+                end)
+                if success1 and p_age and p_age < p_maxAge then
+                    -- not grown yet
+                    continue
+                end
+            end
+           
+            if is_fav then
+                -- can't collect fav fruit
+                continue
+            end
+            local fruitsFolder = plantModel:FindFirstChild("Fruits")
+            -- some fruits dont have fruits folder as they are single harvest
+            if fruitsFolder then
+                for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                    local is_fav1 = fruit:GetAttribute("Favorited")
+                    local _maxAge = fruit:GetAttribute("MaxAge")
+                    
+                    if _maxAge then
+                        local success, _age = pcall(function()
+                            return fruit.Grow.Age.Value
+                        end)
+                        if success and _age and _age < _maxAge then
+                            -- not grown yet
+                            continue
+                        end
+                    end
+                    
+                    if is_fav1 then
+                        -- can't collect fav fruit
+                        continue
+                    end 
+                    
+                    local isPreventAsen1 = IsPreventAscensionFruitRequirement(plantModel)
+                    if not isPreventAsen1 then
+                        table.insert(fruitsToCollect, fruit)
+                    else
+                        current_prevnt_asen = current_prevnt_asen + 1
+                        if current_prevnt_asen >= max_ascen then
+                            table.insert(fruitsToCollect, fruit)
+                        end
+                    end
+                end
+            else
+                -- this plant is fruit itself
+                local isPreventAsen = IsPreventAscensionFruitRequirement(plantModel)
+                if not isPreventAsen then
+                    table.insert(fruitsToCollect, plantModel)
+                else
+                    current_prevnt_asen = current_prevnt_asen + 1
+                    if current_prevnt_asen >= max_ascen then
+                        table.insert(fruitsToCollect, plantModel)
+                    end
+                end
+                
+            end
+        end
+    end
+
+    if #fruitsToCollect > 0 then
+        --warn("fruitsToCollect --- ")
+        _S.collectEvent:FireServer(fruitsToCollect)
+        return true
+    end
+    
+    --warn("NO fruits ")
+    return false
+end
+
+-- returns a key/value if you pass in fruit type like Berry
+_FruitCollectorMachine.GetPlantsByCategoryName = function (categoryName)
+    if not Varz.PlantsCategoryData then
+        return nil
+    end
+    local dir = {}
+    local c = Varz.PlantsCategoryData[categoryName]
+    if c then
+        for index, value in ipairs(c) do
+            dir[value] = true
+        end
+        return dir
+    end
+    return nil
+end
+
+
+----------------- END FRUIT Collect
+
+
+
+
+
+
 
 
 -- ================ EGG SYSTEM
@@ -1257,86 +1464,7 @@ end
 
 
 
-
-
-
-
-
-
-
---============ LIMIED Fairy EVENT
-
-local function scanFairies()
-    
-    local scan_amount = 0
-    local fairy_found_count = 0
-    local total_spams = 0
-    
-    local function spProxi(prompt)
-        fireproximityprompt(prompt)
-    end
-    
-    while true  do
-        task.wait(3) 
-        if FSettings.is_fairy_scanner_active == false then
-            continue
-        end
-        scan_amount = scan_amount + 1
-        if not UI_LABELS.lbl_fariystats then
-            print("null UI lbl_stats")
-            continue
-        end
-        
-        --print("🔍 Fairy scanning " .. scan_amount)
-        UI_LABELS.lbl_fariystats:SetText("🔍 Fairy scanning " .. scan_amount)
  
-        for i = 1, 15 do
-            local slot = workspace:FindFirstChild(tostring(i))
-            if slot and slot:FindFirstChild("ProximityPrompt") then
-                local prompt = slot.ProximityPrompt
-                fairy_found_count = fairy_found_count + 1
-                print("✨ Fairy found in slot " .. i .. " (Total found: " .. fairy_found_count .. ")")
-                task.wait(1)
-
-                -- spam until gone
-                local fspam = 0
-                while prompt and prompt.Parent do
-                    fspam = fspam + 1
-                    total_spams = total_spams + 1
-
-                    fireproximityprompt(prompt)
-                    -- fire 5 times
-                    -- for j = 1, 2 do
-                    --     task.spawn(function()
-                    --         spProxi(prompt)
-                    --     end)
-                    -- end
-
-                    if fspam % 20 == 0 then
-                        local infox ="⚡ Spamming fairy (" .. fspam .. " times for this fairy, " .. total_spams .. " total)"
-                        UI_LABELS.lbl_fariystats:SetText(infox)
-                    end
-                    
-                    task.wait(0.5)
-                end
-                scan_amount = 0
-                --print("❌ Fairy disappeared after")
-                UI_LABELS.lbl_fariystats:SetText("❌ Fairy disappeared after")
-            end
-        end
-    end 
-end
-
--- Start scanning
-task.spawn(scanFairies)
--- END farity
-
-
-
-local function extractFirstNumber(str)
-    local num = str:match("%d+")
-    return tonumber(num) or 0
-end
 
 -- this returns how many eggs user has unlocked and can play
 local function GetMaxEggCapacity()
@@ -2209,6 +2337,14 @@ local function findEggToPlaceBasedOnPriority()
 end
 
 
+
+local function MakeFruitsFav(list)
+    for _, item in ipairs(list) do
+        _S.FavItem:FireServer(item)
+    end
+end
+
+
 local function GetCountEggsOnFarm()
     local f_count = 0
     -- crates are also placed in this location, filter eggs only
@@ -2304,6 +2440,147 @@ end
 
 
 
+---------------------------------------------------
+-------------- Event Fall Market Event
+---------------------------------------------------
+FallEventManager.UpdateStatsText = function (_txt)
+    if UI_LABELS.lbl_fallevent_stats then
+        UI_LABELS.lbl_fallevent_stats:SetText(_txt)
+    end
+end
+
+
+FallEventManager.UpdateStatsRequiredText = function (_txt)
+    if UI_LABELS.lbl_fallevent_required_fruits then
+        UI_LABELS.lbl_fallevent_required_fruits:SetText(_txt)
+    end
+end
+
+FallEventManager.UpdateStatsProgressText = function (_txt)
+    if UI_LABELS.lbl_fallevent_progress then
+        UI_LABELS.lbl_fallevent_progress:SetText(_txt)
+    end
+end
+
+FallEventManager.UpdateStatsFallBloomText = function (_txt)
+    if UI_LABELS.lbl_fallevent_fall_bloom then
+        UI_LABELS.lbl_fallevent_fall_bloom:SetText(_txt)
+    end
+end
+
+
+FallEventManager.SubmitFruits = function ()
+    game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("FallMarketEvent"):WaitForChild("SubmitAllPlants"):FireServer()
+end
+
+FallEventManager.GetLookingForTrait = function()
+    local success, trait = pcall(function()
+        local label = _S.Workspace.Interaction.UpdateItems["Fall Festival"]
+            .FallPlatform.MrOakaly.BubblePart.FallMarketBillboard.BG.TraitTextLabel
+
+        local text = label.ContentText or ""
+        local traitName = text:match("looking for (.+) Plants")
+        return traitName
+    end)
+
+    if success and trait then
+        return trait
+    else
+        return nil
+    end
+end
+
+
+FallEventManager.GetProgressPercent = function()
+    local success, percent = pcall(function()
+        local label = _S.Workspace.Interaction.UpdateItems["Fall Festival"]
+            .FallPlatform.MrOakaly.ProgressPart.ProgressBilboard.UpgradeBar.ProgressionLabel
+
+        local text = label.ContentText or "" -- e.g. "0/500"
+        local current, max = text:match("(%d+)%s*/%s*(%d+)")
+        if current and max then
+            current, max = tonumber(current), tonumber(max)
+            local percent = math.clamp((current / max) * 100, 0, 100)
+            local percentStr = string.format("%.2f%%", percent)  -- e.g., "1.22%"
+            local ftxt = text.. " | ".. percentStr
+            return ftxt
+        end
+        return nil
+    end)
+
+    if success and percent then
+        return percent
+    else
+        return nil
+    end
+end
+
+FallEventManager.GetCooldown = function()
+    local success, seconds = pcall(function()
+        local label = _S.Workspace.Interaction.UpdateItems["Fall Festival"]
+            .FallPlatform.MrOakaly.ProgressPart.ProgressBilboard.UpgradeBar.ProgressionLabel
+
+        local text = label.ContentText or ""  -- use .Text, not .ContentText
+        local minutes, secs = text:match("Cooldown:%s*(%d+):(%d+)")
+        if minutes and secs then
+            return tonumber(minutes) * 60 + tonumber(secs)
+        end
+        return nil
+    end)
+
+    if success and seconds then
+        return seconds
+    else
+        return nil
+    end
+end
+
+FallEventManager.GetFallBlooms = function()
+    local success, result = pcall(function()
+        local label = _S.Workspace.Interaction.UpdateItems["Fall Festival"]
+            .FallPlatform.FallBloomsContributedSign.Part.SurfaceGui.Root.Quantity
+
+        local text = label.ContentText or ""  -- e.g., "123"
+        local current = tonumber(text)
+        if current then
+            return current
+        end
+        return nil
+    end)
+
+    if success and result then
+        return result
+    else
+        return nil
+    end
+end
+
+
+
+---------------------------------------------------
+-------------- END Event Fall
+---------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2379,6 +2656,8 @@ local function CollectFruitUsingNameAndMut(plantName, requiredMutations)
 
                     if hasAllMutations then
                         table.insert(fruitsToCollect, fruit)
+                        -- also make it fav
+                        MakeFruitsFav(fruitsToCollect)
                         break
                     end
 
@@ -2614,7 +2893,10 @@ local function AutoAscension()
     local mutations_fs = {}
     local can_ascend = false
     local RebirthConfirmation = _S.PlayerGui.RebirthConfirmation
-
+    
+    Varz.AscensionFruitName = nil
+    Varz.AscensionFruitMutations = {}
+    
     -- what mutation the fruit needs.
     --  this can be array , e.g WindStruct,Sun
     local success1, value1 = pcall(function()
@@ -2628,12 +2910,15 @@ local function AutoAscension()
     
     if success2 and value2 then
         fruit_name = value2
+        Varz.AscensionFruitName = fruit_name
     end
-    
-     -- Normalize mutations into dictionary for fast lookup
+
+    -- Normalize mutations into dictionary for fast lookup
     if success1 and value1 and value1 ~= "" then
         for mut in string.gmatch(value1, "([^,]+)") do
-            mutations_fs[mut:match("^%s*(.-)%s*$")] = true -- trim spaces
+            local _m = mut:match("^%s*(.-)%s*$") -- trim spaces
+            mutations_fs[_m] = true
+            Varz.AscensionFruitMutations[_m] = true
         end
     end
     
@@ -2649,11 +2934,21 @@ local function AutoAscension()
         if requried_tool then
             -- we have this fruit in the backpack.
             -- claim rewards
+            local is_fav_f = requried_tool:GetAttribute("d")
+            if is_fav_f then
+                -- unfav it so we can give
+                local fav_p = {}
+                table.insert(fav_p,requried_tool)
+                MakeFruitsFav(fav_p)
+                task.wait(0.1)
+            end
             CharEquipTool(requried_tool)
             game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuyRebirth"):FireServer()
             print("Ascension Completed")
             UpdateAscenStats("✅ Ascension Completed")
-            task.wait(5)
+            Varz.AscensionFruitName = nil
+            Varz.AscensionFruitMutations = {}
+            task.wait(3)
         end
     else
         if HasPlantByName(fruit_name) then
@@ -2693,6 +2988,8 @@ if not _G.AutoAscensionTask then
             if not success then
                 warn("⚠️ AutoAscension failed: ", err)
             end
+            
+            sleep_ascend = math.random(12, 31)
         end
     end)
 end
@@ -3075,7 +3372,7 @@ end
 
 
 
- 
+
 
 
 -- hatchs all eggs
@@ -3155,33 +3452,18 @@ end
 
 
 
-
  
-
-
-local function fairySubmit()
-    _S.GameEvents:WaitForChild("FairyService"):WaitForChild("SubmitFairyFountainAllPlants"):FireServer() 
-end
-
 
 local function OnBatchCollected()
     -- any event based stuff here
     --
-    if FSettings.is_fairy_scanner_active then
-        fairySubmit()
-    end
+     
 end
 
-
-local function MakeFruitsFav(list)
-    for _, item in ipairs(list) do
-        _S.FavItem:FireServer(item)
-    end
-end
 
 
 local function GetAllFruitsToSell()
-    print("get fruits")
+    --print("get fruits")
     local fav_list = {}
     local sell_candidates  = {} 
     
@@ -3314,7 +3596,7 @@ local function IsAnyPlantsSelected()
     return false
 end
 
--- (The rest of your backend logic remains unchanged)
+-- collect fruits
 local function collectFilteredFruits()
     local allFruitsToCollect = {}
     local info1 = ""
@@ -3469,6 +3751,7 @@ local function SessionLoop()
         passive_pet_bonus = 0
         tracked_bonus_egg_recovery = 0
         tracked_bonus_egg_sell_refund = 0
+        Varz.IS_HATCHING = false
         
         UpdatePlayerStats() -- reset any buffs
 
@@ -3514,6 +3797,7 @@ local function SessionLoop()
             UPDATE_LABELS_FUNC.UpdateSetLblStats("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
             print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
+            Varz.IS_HATCHING = false
             task.wait(5) -- Wait 2 seconds before checking again
         end
 
@@ -3521,7 +3805,8 @@ local function SessionLoop()
         if is_forced_stop or not FSettings.is_running then
             break
         end
-
+        
+        Varz.IS_HATCHING = true
         print("SessionLoop: Eggs are ready! Starting cycle.")
         UPDATE_LABELS_FUNC.UpdateSetLblStats("Eggs ready! Starting cycle.")
         task.wait(0.5)
@@ -3550,11 +3835,11 @@ local function SessionLoop()
         task.wait(3.5)
 
         UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching all available eggs...")
-        UpdatePlayerStats() 
+        UpdatePlayerStats()
         tracked_bonus_egg_recovery = PlayerSecrets.EggRecoveryChance
         HatchAllEggsAvailable(false) -- HATCH EGGS, provide false, we can't hatch big pets here
 
-        if is_pet_inventory_full then -- CRITICAL STOP: This cannot be recovered by retrying.
+        if is_pet_inventory_full then
             SendErrorMessage("Pet Inventory is full! Stopping session.")
             --is_forced_stop = true
             --break
@@ -3562,7 +3847,9 @@ local function SessionLoop()
         UPDATE_LABELS_FUNC.UpdateSetLblStats("Hatching Complete.")
         task.wait(2)
         
-        
+        -- we no longer need hatching team to be equipped
+        UnEquipAllPets()
+        task.wait(1);
         
         -- ============ BIG PET HATCH
         -- These pets can be hatched using pets that can increase size.
@@ -3610,7 +3897,7 @@ local function SessionLoop()
             task.wait(0.7)
             continue -- Restart the loop from the top instead of stopping
         end
-        task.wait(2)
+        task.wait(1.1)
 
         -- Place Selling Team (Team 1)
         if FSettings.disable_team1 == false then
@@ -3658,6 +3945,8 @@ local function SessionLoop()
         task.wait(0.1)
        
         AfterUpdateEggCountForAllEggs()
+        
+        Varz.IS_HATCHING = false
   
         -- Update and save tracking data
         local hatched_this_cycle = #newlyHatchedNames
@@ -3889,7 +4178,7 @@ end
 
 local Window = Library:CreateWindow({
     Title = "Exotic Hub",
-    Footer = "v1.1",
+    Footer = _S.CurentV,
     ToggleKeybind = Enum.KeyCode.RightControl,
     Center = true,
     AutoShow = true
@@ -4590,7 +4879,7 @@ end
  
 
 
--- Events UI Function
+-- Events UI Function #UiEvent
 local function MEventsUi()
     -- 1. Create the new "Events" Tab
     local UIEventsTab = Window:AddTab({
@@ -4599,29 +4888,80 @@ local function MEventsUi()
         Icon = "calendar-heart" -- An icon that fits the theme
     })
 
-    -- 2. Create groupboxes for organization
-    local GroupBoxEventControls = UIEventsTab:AddLeftGroupbox("Event Controls", "toggle-left")
-    
-    UI_LABELS.lbl_fariystats = GroupBoxEventControls:AddLabel({
-        Text = "Waiting for stats...", -- Initial placeholder text
+    ---------------------------------------------------
+    -------- FALL Event
+    ---------------------------------------------------
+    local gFallEvent = UIEventsTab:AddLeftGroupbox("🥬 Fall Market Event 🥕", "shopping-cart")
+    local event_name1 = "Fall Market Event"
+    UI_LABELS.lbl_fallevent_stats = gFallEvent:AddLabel({
+        Text = "⏳ Waiting for stats...",
+        DoesWrap = true
+    })
+
+    gFallEvent:AddDivider()
+    -- Progress
+    UI_LABELS.lbl_fallevent_progress = gFallEvent:AddLabel({
+        Text = "-",
+        DoesWrap = true
+    })
+
+    -- Required fruits
+    UI_LABELS.lbl_fallevent_required_fruits = gFallEvent:AddLabel({
+        Text = "-",
         DoesWrap = true
     })
     
-    GroupBoxEventControls:AddDivider()
     
-    -- 3. Add your "Fairy Spam" toggle to the new groupbox
-    GroupBoxEventControls:AddToggle("toggleFairy", {
-        Text = "Fairy Spam",
-        Default = FSettings.is_fairy_scanner_active,
-        Tooltip = "Scans for and collects from Fairies",
+    -- total submits
+    UI_LABELS.lbl_fallevent_fall_bloom = gFallEvent:AddLabel({
+        Text = "-",
+        DoesWrap = true
+    })
+
+    -- info 
+    gFallEvent:AddLabel({
+        Text = "ℹ️ "..event_name1 .. " will not collect Ascension required items or when 🥚 hatch is about to happen.",
+        DoesWrap = true
+    })
+
+    -- Enable or disable Fall market event
+    gFallEvent:AddToggle("tEventFall", {
+        Text = event_name1,
+        Default = FOtherSettings.is_fall_event_running,
+        Tooltip = "Enable or Disable event",
         Callback = function(Value)
-            FSettings.is_fairy_scanner_active = Value
-            SaveData()
-            Library:Notify("Fairy Scanner " .. (Value and "Enabled" or "Disabled"), 1)
+            FOtherSettings.is_fall_event_running = Value
+            SaveDataOther()
+            Library:Notify(event_name1 .. " " .. (Value and "Enabled" or "Disabled"), 2)
         end
     })
-    -- You can add other event-related toggles here in the future
     
+    gFallEvent:AddDivider()
+    
+    -- Shops for this event
+     local xfall_pet_shop = gFallEvent:AddDropdown("xfall_pet_shop", {
+        Values = {},
+        Default = {},
+        Multi = true,
+        Searchable = true,
+        MaxVisibleDropdownItems = 10,
+        Text = "🛒 Fall Festival Pets",
+        Tooltip = "Select Items to buy",
+        Changed = function(newSelection)
+            FOtherSettings.fall_pets_shop = {}
+            for key, value in pairs(newSelection) do
+                FOtherSettings.fall_pets_shop[key] = value
+            end
+
+            SaveDataOther()
+        end
+    })
+    xfall_pet_shop:SetValues(GetKeyValuesFromList(Varz.FallEvent_Pet_Shop_ItemList))
+    xfall_pet_shop:SetValue(FOtherSettings.fall_pets_shop)
+    
+    ---------------------------------------------------
+    -------- END FALL Event
+    ---------------------------------------------------
     
     
     local GroupBoxAutoAscension = UIEventsTab:AddRightGroupbox("AutoAscension", "calendar-sync")
@@ -4868,7 +5208,7 @@ local function MSellUI()
         Multi = true,
         Searchable = true,
         MaxVisibleDropdownItems = 10,
-        Text = "🍌 Sell Fruti",
+        Text = "🍌 Sell Fruits",
         Tooltip = "Select fruit to sell. if nothing is selected it will sell all.",
         Changed = function(newSelection)
             FOtherSettings.sell_fruit_list = {}
@@ -5215,4 +5555,90 @@ if not main_thread and FSettings.is_running and FSettings.is_auto_rejoin then
         
     end
     --main_thread = task.spawn(MainLoop);
+end
+
+
+-- Start Fall Event
+if not _G.FallEventLoop then
+    _G.FallEventLoop = task.spawn(function ()
+        while true do
+            task.wait(3)
+            if not FOtherSettings.is_fall_event_running then
+                FallEventManager.UpdateStatsText("🔴 Not Running")
+                continue
+            end
+            
+            if Varz.IS_HATCHING then
+                FallEventManager.UpdateStatsText("🥚 Paused Hatching is in progress")
+                task.wait(3)
+                break
+            end
+            
+            FallEventManager.UpdateStatsText("🟢 Active and running...")
+            local typeoffruits = FallEventManager.GetLookingForTrait()
+            local cooldown = FallEventManager.GetCooldown()
+            local _total_bloom = FallEventManager.GetFallBlooms()
+            
+            if _total_bloom then
+                FallEventManager.UpdateStatsFallBloomText("🌸 Fall Blooms: <b>" .. _total_bloom .. "</b>")
+            end
+            
+            local current_progress = FallEventManager.GetProgressPercent()
+            if current_progress then
+                FallEventManager.UpdateStatsProgressText("🔄 Progress: ".. current_progress .. "s")
+            end
+
+            if typeoffruits then
+                FallEventManager.UpdateStatsRequiredText("✨ Looking for: <font color='#FF7800'>" .. typeoffruits .. "</font> Plants")
+            end
+
+            -- try to submit any fruits collected
+            if cooldown then
+                -- can't collect fruits yet
+                --print("Can't collect cd: ".. cooldown)
+                FallEventManager.UpdateStatsProgressText("⏳ Cooldown: <b>".. cooldown .. "s </b>")
+                task.wait(2)
+                continue
+            end
+            FallEventManager.SubmitFruits()
+            -- can collect
+            
+            if typeoffruits then
+                local list_names = _FruitCollectorMachine.GetPlantsByCategoryName(typeoffruits)
+                if list_names then
+                    --print("got list of names")
+                    local collected = _FruitCollectorMachine.CollectFruitByNames(list_names)
+                    task.wait(0.1)
+                    if collected then
+                        FallEventManager.SubmitFruits()
+                        FallEventManager.UpdateStatsText("✅ Submit Fruits")
+                        task.wait(0.5)
+                    else
+                        FallEventManager.UpdateStatsText("☹️ Not found any fruits to collect.")
+                        task.wait(2.5)
+                    end
+                end
+            else
+                FallEventManager.UpdateStatsText("❌ Failed to find fruit category! restart game.")
+                task.wait(3)
+                --print("fruits category not found")
+            end
+        end
+    end)
+
+end
+
+
+
+
+-- Event Shop Buy
+if not _G.EventsShopBuyStuff then
+    _G.EventsShopBuyStuff = task.spawn(function ()
+        while true do
+            task.wait(10)
+            
+            -- fall pet shop
+            _EventShops.FallBuyPetsShop()
+        end
+    end)
 end
