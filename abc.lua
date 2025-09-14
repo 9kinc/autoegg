@@ -3795,7 +3795,7 @@ local function SessionLoop()
         -- Wait until there are eggs ready to hatch
         while CheckAnyEggsToHatch() == false and not is_forced_stop and FSettings.is_running do
             UPDATE_LABELS_FUNC.UpdateSetLblStats("Waiting for eggs to hatch..." .. waiting_for_hatch_count)
-            print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
+            --print("SessionLoop: Eggs not ready, waiting..." .. tostring(is_ready_hatch))
             waiting_for_hatch_count = waiting_for_hatch_count + 1
             Varz.IS_HATCHING = false
             task.wait(5) -- Wait 2 seconds before checking again
@@ -5568,10 +5568,10 @@ if not _G.FallEventLoop then
                 continue
             end
             
-            if Varz.IS_HATCHING then
+            if Varz.IS_HATCHING == true then
                 FallEventManager.UpdateStatsText("🥚 Paused Hatching is in progress")
                 task.wait(3)
-                break
+                continue
             end
             
             FallEventManager.UpdateStatsText("🟢 Active and running...")
