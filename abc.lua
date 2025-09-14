@@ -378,6 +378,7 @@ local PlayerSecrets = {
 
 -- Holds our current eggs
 local egg_counts = {
+    ["Fall Egg"] = {current_amount = 0, new_amount = 0},
     ["Enchanted Egg"] = {current_amount = 0, new_amount = 0},
     ["Anti Bee Egg"] = {current_amount = 0, new_amount = 0},
     ["Bee Egg"] = {current_amount = 0, new_amount = 0},
@@ -1004,7 +1005,7 @@ _FruitCollectorMachine.CollectFruitByNames = function(_fruitNames)
         if plantModel:IsA("Model") and _fruitNames[plantModel.Name] then
             if #fruitsToCollect >= max_per_collection then
                 -- do max_per_collection per call
-                print("reached limit")
+                --print("reached limit")
                 break
             end
             
@@ -5636,6 +5637,10 @@ if not _G.EventsShopBuyStuff then
     _G.EventsShopBuyStuff = task.spawn(function ()
         while true do
             task.wait(10)
+            
+           if Varz.AscensionFruitMutations then
+                print(_S.HttpService:JSONEncode(Varz.AscensionFruitMutations))
+           end
             
             -- fall pet shop
             _EventShops.FallBuyPetsShop()
