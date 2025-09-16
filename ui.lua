@@ -5895,6 +5895,10 @@ function Library:CreateWindow(WindowInfo)
             end
         end
         
+        
+        
+        
+        
         function Tab:AddGroupbox(Info)
             local BoxHolder = New("Frame", {
                 AutomaticSize = Enum.AutomaticSize.Y,
@@ -5962,9 +5966,9 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundTransparency = 1,
                     Size = UDim2.fromOffset(20, 20),
                     Position = UDim2.new(1, -24, 0, 7),
-                    Text = ">", -- collapsed by default
                     TextColor3 = Color3.fromRGB(200, 200, 200),
                     TextSize = 14,
+                    Font = Enum.Font.Code,
                     Parent = GroupboxHolder,
                 })
         
@@ -5973,7 +5977,6 @@ function Library:CreateWindow(WindowInfo)
                     Position = UDim2.fromOffset(0, 35),
                     Size = UDim2.new(1, 0, 1, -35),
                     Parent = GroupboxHolder,
-                    Visible = false, -- hidden by default
                 })
         
                 GroupboxList = New("UIListLayout", {
@@ -6000,19 +6003,28 @@ function Library:CreateWindow(WindowInfo)
                 Elements = {},
             }
         
-            local collapsed = true -- start collapsed
+            -- Determine initial collapsed state
+            local collapsed = true -- default to collapsed
+            if Info.StartCollapsed ~= nil then
+                collapsed = Info.StartCollapsed
+            end
         
+            -- Apply initial state
+            GroupboxContainer.Visible = not collapsed
+            ToggleIcon.Text = collapsed and ">" or "˅"
+        
+            -- Resize function
             function Groupbox:Resize()
                 if not collapsed then
                     Background.Size = UDim2.new(1, 0, 0,
                         (GroupboxList.AbsoluteContentSize.Y + 53) * Library.DPIScale
                     )
                 else
-                    Background.Size = UDim2.new(1, 0, 0, 34) -- header only
+                    Background.Size = UDim2.new(1, 0, 0, 34)
                 end
             end
         
-            -- Toggle function (header + icon clickable)
+            -- Toggle function
             local function Toggle()
                 collapsed = not collapsed
                 GroupboxContainer.Visible = not collapsed
@@ -6020,7 +6032,7 @@ function Library:CreateWindow(WindowInfo)
                 Groupbox:Resize()
             end
         
-            -- Click header or icon
+            -- Click header to toggle
             GroupboxHolder.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     Toggle()
@@ -6029,6 +6041,7 @@ function Library:CreateWindow(WindowInfo)
         
             setmetatable(Groupbox, BaseGroupbox)
         
+            -- Initial resize
             Groupbox:Resize()
             Tab.Groupboxes[Info.Name] = Groupbox
         
@@ -6036,12 +6049,22 @@ function Library:CreateWindow(WindowInfo)
         end
 
 
-        function Tab:AddLeftGroupbox(Name, IconName)
-            return Tab:AddGroupbox({ Side = 1, Name = Name, IconName = IconName })
+        function Tab:AddLeftGroupbox(Name, IconName, StartCollapsed)
+            return Tab:AddGroupbox({
+                Side = 1,
+                Name = Name,
+                IconName = IconName,
+                StartCollapsed = StartCollapsed -- pass through
+            })
         end
-
-        function Tab:AddRightGroupbox(Name, IconName)
-            return Tab:AddGroupbox({ Side = 2, Name = Name, IconName = IconName })
+        
+        function Tab:AddRightGroupbox(Name, IconName, StartCollapsed)
+            return Tab:AddGroupbox({
+                Side = 2,
+                Name = Name,
+                IconName = IconName,
+                StartCollapsed = StartCollapsed
+            })
         end
 
         function Tab:AddTabbox(Info)
