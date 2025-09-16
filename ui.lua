@@ -5894,145 +5894,147 @@ function Library:CreateWindow(WindowInfo)
                 })
             end
         end
-
+        
         function Tab:AddGroupbox(Info)
-    local BoxHolder = New("Frame", {
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 0),
-        Parent = Info.Side == 1 and TabLeft or TabRight,
-    })
-    New("UIListLayout", {
-        Padding = UDim.new(0, 6),
-        Parent = BoxHolder,
-    })
-
-    local Background = Library:MakeOutline(BoxHolder, WindowInfo.CornerRadius)
-    Background.Size = UDim2.fromScale(1, 0)
-    Library:UpdateDPI(Background, {
-        Size = false,
-    })
-
-    local GroupboxHolder
-    local GroupboxLabel
-    local GroupboxContainer
-    local GroupboxList
-    local ToggleIcon
-
-    do
-        GroupboxHolder = New("Frame", {
-            BackgroundColor3 = "BackgroundColor",
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 1, -4),
-            Parent = Background,
-        })
-        New("UICorner", {
-            CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
-            Parent = GroupboxHolder,
-        })
-        Library:MakeLine(GroupboxHolder, {
-            Position = UDim2.fromOffset(0, 34),
-            Size = UDim2.new(1, 0, 0, 1),
-        })
-
-        local BoxIcon = Library:GetIcon(Info.IconName)
-        if BoxIcon then
-            New("ImageLabel", {
-                Image = BoxIcon.Url,
-                ImageColor3 = "AccentColor",
-                ImageRectOffset = BoxIcon.ImageRectOffset,
-                ImageRectSize = BoxIcon.ImageRectSize,
-                Position = UDim2.fromOffset(6, 6),
-                Size = UDim2.fromOffset(22, 22),
-                Parent = GroupboxHolder,
+            local BoxHolder = New("Frame", {
+                AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundTransparency = 1,
+                Size = UDim2.fromScale(1, 0),
+                Parent = Info.Side == 1 and TabLeft or TabRight,
             })
-        end
-
-        GroupboxLabel = New("TextLabel", {
-            BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(BoxIcon and 24 or 0, 0),
-            Size = UDim2.new(1, 0, 0, 34),
-            Text = Info.Name,
-            TextSize = 15,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = GroupboxHolder,
-        })
-        New("UIPadding", {
-            PaddingLeft = UDim.new(0, 12),
-            PaddingRight = UDim.new(0, 28), -- leave space for toggle icon
-            Parent = GroupboxLabel,
-        })
-
-        -- ▼▼ Toggle Icon (arrow) ▼▼
-        ToggleIcon = New("TextButton", {
-            BackgroundTransparency = 1,
-            Size = UDim2.fromOffset(20, 20),
-            Position = UDim2.new(1, -24, 0, 7),
-            Text = "▼", -- down arrow
-            TextColor3 = Color3.fromRGB(200, 200, 200),
-            TextSize = 14,
-            Parent = GroupboxHolder,
-        })
-
-        GroupboxContainer = New("Frame", {
-            BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(0, 35),
-            Size = UDim2.new(1, 0, 1, -35),
-            Parent = GroupboxHolder,
-        })
-
-        GroupboxList = New("UIListLayout", {
-            Padding = UDim.new(0, 8),
-            Parent = GroupboxContainer,
-        })
-        New("UIPadding", {
-            PaddingBottom = UDim.new(0, 7),
-            PaddingLeft = UDim.new(0, 7),
-            PaddingRight = UDim.new(0, 7),
-            PaddingTop = UDim.new(0, 7),
-            Parent = GroupboxContainer,
-        })
-    end
-
-    local Groupbox = {
-        BoxHolder = BoxHolder,
-        Holder = Background,
-        Container = GroupboxContainer,
-        ToggleIcon = ToggleIcon,
-
-        Tab = Tab,
-        DependencyBoxes = {},
-        Elements = {},
-    }
-
-    function Groupbox:Resize()
-        Background.Size = UDim2.new(1, 0, 0,
-            (GroupboxList.AbsoluteContentSize.Y + 53) * Library.DPIScale
-        )
-    end
-
-    -- ▼▼ Toggle Function ▼▼
-    local collapsed = false
-    ToggleIcon.MouseButton1Click:Connect(function()
-        collapsed = not collapsed
-        if collapsed then
-            GroupboxContainer.Visible = false
-            ToggleIcon.Text = "►" -- right arrow
-            Background.Size = UDim2.new(1, 0, 0, 34) -- header only
-        else
-            GroupboxContainer.Visible = true
-            ToggleIcon.Text = "▼" -- down arrow
+            New("UIListLayout", {
+                Padding = UDim.new(0, 6),
+                Parent = BoxHolder,
+            })
+        
+            local Background = Library:MakeOutline(BoxHolder, WindowInfo.CornerRadius)
+            Background.Size = UDim2.fromScale(1, 0)
+            Library:UpdateDPI(Background, { Size = false })
+        
+            local GroupboxHolder, GroupboxLabel, GroupboxContainer, GroupboxList, ToggleIcon
+        
+            do
+                GroupboxHolder = New("Frame", {
+                    BackgroundColor3 = "BackgroundColor",
+                    Position = UDim2.fromOffset(2, 2),
+                    Size = UDim2.new(1, -4, 1, -4),
+                    Parent = Background,
+                })
+                New("UICorner", {
+                    CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
+                    Parent = GroupboxHolder,
+                })
+                Library:MakeLine(GroupboxHolder, {
+                    Position = UDim2.fromOffset(0, 34),
+                    Size = UDim2.new(1, 0, 0, 1),
+                })
+        
+                local BoxIcon = Library:GetIcon(Info.IconName)
+                if BoxIcon then
+                    New("ImageLabel", {
+                        Image = BoxIcon.Url,
+                        ImageColor3 = "AccentColor",
+                        ImageRectOffset = BoxIcon.ImageRectOffset,
+                        ImageRectSize = BoxIcon.ImageRectSize,
+                        Position = UDim2.fromOffset(6, 6),
+                        Size = UDim2.fromOffset(22, 22),
+                        Parent = GroupboxHolder,
+                    })
+                end
+        
+                GroupboxLabel = New("TextLabel", {
+                    BackgroundTransparency = 1,
+                    Position = UDim2.fromOffset(BoxIcon and 24 or 0, 0),
+                    Size = UDim2.new(1, 0, 0, 34),
+                    Text = Info.Name,
+                    TextSize = 15,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = GroupboxHolder,
+                })
+                New("UIPadding", {
+                    PaddingLeft = UDim.new(0, 12),
+                    PaddingRight = UDim.new(0, 28),
+                    Parent = GroupboxLabel,
+                })
+        
+                -- Toggle Icon
+                ToggleIcon = New("TextLabel", {
+                    BackgroundTransparency = 1,
+                    Size = UDim2.fromOffset(20, 20),
+                    Position = UDim2.new(1, -24, 0, 7),
+                    Text = ">", -- collapsed by default
+                    TextColor3 = Color3.fromRGB(200, 200, 200),
+                    TextSize = 14,
+                    Parent = GroupboxHolder,
+                })
+        
+                GroupboxContainer = New("Frame", {
+                    BackgroundTransparency = 1,
+                    Position = UDim2.fromOffset(0, 35),
+                    Size = UDim2.new(1, 0, 1, -35),
+                    Parent = GroupboxHolder,
+                    Visible = false, -- hidden by default
+                })
+        
+                GroupboxList = New("UIListLayout", {
+                    Padding = UDim.new(0, 8),
+                    Parent = GroupboxContainer,
+                })
+                New("UIPadding", {
+                    PaddingBottom = UDim.new(0, 7),
+                    PaddingLeft = UDim.new(0, 7),
+                    PaddingRight = UDim.new(0, 7),
+                    PaddingTop = UDim.new(0, 7),
+                    Parent = GroupboxContainer,
+                })
+            end
+        
+            local Groupbox = {
+                BoxHolder = BoxHolder,
+                Holder = Background,
+                Container = GroupboxContainer,
+                ToggleIcon = ToggleIcon,
+        
+                Tab = Tab,
+                DependencyBoxes = {},
+                Elements = {},
+            }
+        
+            local collapsed = true -- start collapsed
+        
+            function Groupbox:Resize()
+                if not collapsed then
+                    Background.Size = UDim2.new(1, 0, 0,
+                        (GroupboxList.AbsoluteContentSize.Y + 53) * Library.DPIScale
+                    )
+                else
+                    Background.Size = UDim2.new(1, 0, 0, 34) -- header only
+                end
+            end
+        
+            -- Toggle function (header + icon clickable)
+            local function Toggle()
+                collapsed = not collapsed
+                GroupboxContainer.Visible = not collapsed
+                ToggleIcon.Text = collapsed and ">" or "˅"
+                Groupbox:Resize()
+            end
+        
+            -- Click header or icon
+            GroupboxHolder.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Toggle()
+                end
+            end)
+        
+            setmetatable(Groupbox, BaseGroupbox)
+        
             Groupbox:Resize()
+            Tab.Groupboxes[Info.Name] = Groupbox
+        
+            return Groupbox
         end
-    end)
 
-    setmetatable(Groupbox, BaseGroupbox)
-
-    Groupbox:Resize()
-    Tab.Groupboxes[Info.Name] = Groupbox
-
-    return Groupbox
-end
 
         function Tab:AddLeftGroupbox(Name, IconName)
             return Tab:AddGroupbox({ Side = 1, Name = Name, IconName = IconName })
