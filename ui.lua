@@ -5915,7 +5915,7 @@ function Library:CreateWindow(WindowInfo)
             Background.Size = UDim2.fromScale(1, 0)
             Library:UpdateDPI(Background, { Size = false })
         
-            local GroupboxHolder, GroupboxLabel, GroupboxContainer, GroupboxList, ToggleIcon
+            local GroupboxHolder, GroupboxLabel, GroupboxContainer, GroupboxList, ToggleIcon, HeaderFrame
         
             do
                 GroupboxHolder = New("Frame", {
@@ -5933,6 +5933,13 @@ function Library:CreateWindow(WindowInfo)
                     Size = UDim2.new(1, 0, 0, 1),
                 })
         
+                -- HEADER FRAME (only clickable area)
+                HeaderFrame = New("Frame", {
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 0, 34),
+                    Parent = GroupboxHolder,
+                })
+        
                 local BoxIcon = Library:GetIcon(Info.IconName)
                 if BoxIcon then
                     New("ImageLabel", {
@@ -5942,18 +5949,18 @@ function Library:CreateWindow(WindowInfo)
                         ImageRectSize = BoxIcon.ImageRectSize,
                         Position = UDim2.fromOffset(6, 6),
                         Size = UDim2.fromOffset(22, 22),
-                        Parent = GroupboxHolder,
+                        Parent = HeaderFrame,
                     })
                 end
         
                 GroupboxLabel = New("TextLabel", {
                     BackgroundTransparency = 1,
                     Position = UDim2.fromOffset(BoxIcon and 24 or 0, 0),
-                    Size = UDim2.new(1, 0, 0, 34),
+                    Size = UDim2.new(1, 0, 1, 0),
                     Text = Info.Name,
                     TextSize = 15,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = GroupboxHolder,
+                    Parent = HeaderFrame,
                 })
                 New("UIPadding", {
                     PaddingLeft = UDim.new(0, 12),
@@ -5969,9 +5976,10 @@ function Library:CreateWindow(WindowInfo)
                     TextColor3 = Color3.fromRGB(200, 200, 200),
                     TextSize = 14,
                     Font = Enum.Font.Code,
-                    Parent = GroupboxHolder,
+                    Parent = HeaderFrame,
                 })
         
+                -- Container below header
                 GroupboxContainer = New("Frame", {
                     BackgroundTransparency = 1,
                     Position = UDim2.fromOffset(0, 35),
@@ -6032,14 +6040,8 @@ function Library:CreateWindow(WindowInfo)
                 Groupbox:Resize()
             end
         
-            -- Click header to toggle
-            -- GroupboxHolder.InputBegan:Connect(function(input)
-            --     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            --         Toggle()
-            --     end
-            -- end)
-            
-            GroupboxHolder.InputBegan:Connect(function(input)
+            -- Tap / click only works on header
+            HeaderFrame.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 
                 or input.UserInputType == Enum.UserInputType.Touch then
                     Toggle()
@@ -6054,6 +6056,7 @@ function Library:CreateWindow(WindowInfo)
         
             return Groupbox
         end
+
 
 
         function Tab:AddLeftGroupbox(Name, IconName, StartCollapsed)
