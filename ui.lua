@@ -1482,7 +1482,13 @@ end
 do
     local WatermarkBackground = Library:MakeOutline(ScreenGui, Library.CornerRadius, 10)
     WatermarkBackground.AutomaticSize = Enum.AutomaticSize.Y
-    WatermarkBackground.Position = UDim2.fromOffset(6, 6)
+    --WatermarkBackground.Position = UDim2.fromOffset(6, 6)
+    -- 1 (X Scale): Go 100% across the screen's width (to the right edge).
+    -- -6 (X Offset): Move left by 6 pixels (creating your margin).
+    -- 0 (Y Scale): Go 0% down the screen's height.
+    -- 6 (Y Offset): Move down by 6 pixels (the top margi
+    WatermarkBackground.AnchorPoint = Vector2.new(1, 0)
+    WatermarkBackground.Position = UDim2.new(1, -50, 0, -50)
     WatermarkBackground.Size = UDim2.fromOffset(0, 0)
     WatermarkBackground.Visible = false
 
