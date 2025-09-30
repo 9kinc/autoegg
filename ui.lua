@@ -6586,13 +6586,31 @@ function Library:CreateWindow(WindowInfo)
     end
 
     if Library.IsMobile then
-        local ToggleButton = Library:AddDraggableButton("Toggle", function()
+        local ToggleButton = Library:AddDraggableButton("<b><font color='#FFEA00'>Exotic</font></b>", function()
             Library:Toggle()
         end)
+        
+        -- local colors = {
+        --     "#FFD700", -- gold
+        --     "#FFEA00", -- bright gold
+        --     "#FFC700", -- warm gold
+        --     "#FFE066", -- light gold
+        --     "#FFD633", -- medium gold
+        -- }
 
-        local LockButton = Library:AddDraggableButton("Lock", function(self)
+        -- local i = 1
+        
+        -- task.spawn(function()
+        --     while true do
+        --         ToggleButton.Button.Text = string.format("<b><font color='%s'>Exotic</font></b>", colors[i])
+        --         i = (i % #colors) + 1
+        --         task.wait(0.3)
+        --     end
+        -- end)
+
+        local LockButton = Library:AddDraggableButton("🔓", function(self)
             Library.CantDragForced = not Library.CantDragForced
-            self:SetText(Library.CantDragForced and "Unlock" or "Lock")
+            self:SetText(Library.CantDragForced and "🔒" or "🔓")
         end)
 
         if WindowInfo.MobileButtonsSide == "Right" then
@@ -6602,7 +6620,15 @@ function Library:CreateWindow(WindowInfo)
             LockButton.Button.Position = UDim2.new(1, -6, 0, 46)
             LockButton.Button.AnchorPoint = Vector2.new(1, 0)
         else
-            LockButton.Button.Position = UDim2.fromOffset(6, 46)
+            local left_offset = 10
+            local top_offset = 55
+            ToggleButton.Button.Position = UDim2.new(0, left_offset, 0, 6 + top_offset)
+            ToggleButton.Button.AnchorPoint = Vector2.new(0, 0)
+            
+            LockButton.Button.Position = UDim2.new(0, 110+left_offset, 0, 6 + top_offset)
+            LockButton.Button.AnchorPoint = Vector2.new(0, 0)
+            
+            --LockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
 
