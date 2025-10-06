@@ -3939,7 +3939,8 @@ do
 
         local Holder = New("Frame", {
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, Dropdown.Text and 39 or 21),
+            --Size = UDim2.new(1, 0, 0, Dropdown.Text and 39 or 21),
+            Size = UDim2.new(1, 0, 0, Dropdown.Text and 46 or 28), -- Changed 39 to 46 and 21 to 28
             Visible = Dropdown.Visible,
             Parent = Container,
         })
@@ -3948,7 +3949,7 @@ do
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 14),
             Text = Dropdown.Text,
-            TextSize = 14,
+            TextSize = 14, -- org 14
             TextXAlignment = Enum.TextXAlignment.Left,
             Visible = not not Info.Text,
             Parent = Holder,
@@ -3961,11 +3962,19 @@ do
             BorderColor3 = "OutlineColor",
             BorderSizePixel = 1,
             Position = UDim2.fromScale(0, 1),
-            Size = UDim2.new(1, 0, 0, 21),
+            --Size = UDim2.new(1, 0, 0, 21),
+            Size = UDim2.new(1, 0, 0, 28), -- Changed 21 to 28
             Text = "---",
-            TextSize = 14,
+            TextSize = 12, -- org 14
+            TextTruncate = Enum.TextTruncate.AtEnd, -- Add this line #added
             TextXAlignment = Enum.TextXAlignment.Left,
             Parent = Holder,
+        })
+        
+        -- Add this right after creating the Display button
+        New("UICorner", {
+            CornerRadius = UDim.new(0, Library.CornerRadius),
+            Parent = Display,
         })
 
         New("UIPadding", {
@@ -3981,7 +3990,8 @@ do
             ImageRectOffset = ArrowIcon and ArrowIcon.ImageRectOffset or Vector2.zero,
             ImageRectSize = ArrowIcon and ArrowIcon.ImageRectSize or Vector2.zero,
             ImageTransparency = 0.5,
-            Position = UDim2.fromScale(1, 0.5),
+            --Position = UDim2.fromScale(1, 0.5),
+            Position = UDim2.new(1, -8, 0.5, 0), -- Changed this line
             Size = UDim2.fromOffset(16, 16),
             Parent = Display,
         })
@@ -4074,10 +4084,11 @@ do
                     Str = tostring(Info.FormatDisplayValue(Str))
                 end
             end
-
-            if #Str > 25 then
-                Str = Str:sub(1, 22) .. "..."
-            end
+            
+            -- removed
+            -- if #Str > 25 then
+            --     Str = Str:sub(1, 22) .. "..."
+            -- end
 
             Display.Text = (Str == "" and "---" or Str)
         end
@@ -4189,8 +4200,117 @@ do
 
             Dropdown:RecalculateListSize(Count)
         end
+        
+        
+        function Dropdown:BuildDropdownListNew()
+            local Values = Dropdown.Values
+            local DisabledValues = Dropdown.DisabledValues
+        
+            for Button, _ in pairs(Buttons) do
+                Button:Destroy()
+            end
+            table.clear(Buttons)
+        
+            local Count = 0
+        
+            -- Helper function to create the button UI to avoid repeating code
+            local function CreateOptionButton(Value)
+                if SearchBox and not tostring(Value):lower():match(SearchBox.Text:lower()) then
+                    return
+                end
+        
+                Count += 1
+                local IsDisabled = table.find(DisabledValues, Value)
+                local Table = {}
+        
+                local Button = New("TextButton", {
+                    BackgroundColor3 = "MainColor",
+                    BackgroundTransparency = 1,
+                    -- LayoutOrder is no longer needed as we are creating them in the correct order
+                    Size = UDim2.new(1, 0, 0, 21),
+                    Text = tostring(Value),
+                    TextSize = 13,
+                    TextTransparency = 0.5,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = MenuTable.Menu,
+                })
+                New("UIPadding", {
+                    PaddingLeft = UDim.new(0, 7),
+                    PaddingRight = UDim.new(0, 7),
+                    Parent = Button,
+                })
+        
+                local Selected
+                function Table:UpdateButton()
+                    if Info.Multi then
+                        Selected = Dropdown.Value[Value]
+                    else
+                        Selected = Dropdown.Value == Value
+                    end
+        
+                    Button.BackgroundTransparency = Selected and 0 or 1
+                    Button.TextTransparency = IsDisabled and 0.8 or Selected and 0 or 0.5
+                end
+        
+                if not IsDisabled then
+                    Button.MouseButton1Click:Connect(function()
+                        local Try = not Selected
+        
+                        if not (Dropdown:GetActiveValues() == 1 and not Try and not Info.AllowNull) then
+                            Selected = Try
+                            if Info.Multi then
+                                Dropdown.Value[Value] = Selected and true or nil
+                            else
+                                Dropdown.Value = Selected and Value or nil
+                            end
+        
+                            for _, OtherButton in pairs(Buttons) do
+                                OtherButton:UpdateButton()
+                            end
+                        end
+        
+                        Table:UpdateButton()
+                        Dropdown:Display()
+        
+                        Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
+                        Library:SafeCallback(Dropdown.Changed, Dropdown.Value)
+                        Library:UpdateDependencyBoxes()
+                    end)
+                end
+        
+                Table:UpdateButton()
+                --Dropdown:Display()
+        
+                Buttons[Button] = Table
+            end
+        
+            -- First Pass: Create buttons for all SELECTED items
+            for _, Value in ipairs(Values) do
+                local isSelected = (Info.Multi and Dropdown.Value[Value]) or (Dropdown.Value == Value)
+                if isSelected then
+                    CreateOptionButton(Value)
+                end
+            end
+        
+            -- Second Pass: Create buttons for all UNSELECTED items
+            for _, Value in ipairs(Values) do
+                local isSelected = (Info.Multi and Dropdown.Value[Value]) or (Dropdown.Value == Value)
+                if not isSelected then
+                    CreateOptionButton(Value)
+                end
+            end
+            Dropdown:Display()
+            Dropdown:RecalculateListSize(Count)
+        end
 
-        function Dropdown:SetValue(Value)
+
+
+
+
+
+
+
+        function Dropdown:SetValue(Value,suppressCallback)
             if Info.Multi then
                 local Table = {}
 
@@ -4215,9 +4335,15 @@ do
             end
 
             if not Dropdown.Disabled then
-                Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
-                Library:SafeCallback(Dropdown.Changed, Dropdown.Value)
+                --Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
+                --Library:SafeCallback(Dropdown.Changed, Dropdown.Value)
                 Library:UpdateDependencyBoxes()
+                
+                -- Only call the Changed/Callback functions if not suppressed
+                if not suppressCallback then
+                    Library:SafeCallback(Dropdown.Callback, Dropdown.Value)
+                    Library:SafeCallback(Dropdown.Changed, Dropdown.Value)
+                end
             end
         end
 
@@ -4280,7 +4406,9 @@ do
 
         function Dropdown:SetText(Text: string)
             Dropdown.Text = Text
-            Holder.Size = UDim2.new(1, 0, 0, (Text and 39 or 21) * Library.DPIScale)
+            --Holder.Size = UDim2.new(1, 0, 0, (Text and 39 or 21) * Library.DPIScale)
+            -- Changed 39 to 46 and 21 to 28 to match our new, taller design
+            Holder.Size = UDim2.new(1, 0, 0, (Text and 46 or 28) * Library.DPIScale)
 
             Label.Text = Text and Text or ""
             Label.Visible = not not Text
@@ -4346,6 +4474,8 @@ do
 
         return Dropdown
     end
+
+   
 
     function Funcs:AddViewport(Idx, Info)
         Info = Library:Validate(Info, Templates.Viewport)
