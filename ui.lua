@@ -3485,7 +3485,7 @@ do
         return Toggle
     end
 
-    function Funcs:AddInput(Idx, Info)
+    function Funcs:AddInput_og(Idx, Info)
         Info = Library:Validate(Info, Templates.Input)
 
         local Groupbox = self
@@ -3643,6 +3643,218 @@ do
 
         return Input
     end
+
+
+
+ 
+
+
+     
+    function Funcs:AddInput(Idx, Info)
+        Info = Library:Validate(Info, Templates.Input)
+    
+        local Groupbox = self
+        local Container = Groupbox.Container
+    
+        local Input = {
+            Text = Info.Text,
+            Value = Info.Default,
+            Finished = Info.Finished,
+            Numeric = Info.Numeric,
+            ClearTextOnFocus = Info.ClearTextOnFocus,
+            Placeholder = Info.Placeholder,
+            AllowEmpty = Info.AllowEmpty,
+            EmptyReset = Info.EmptyReset,
+    
+            Tooltip = Info.Tooltip,
+            DisabledTooltip = Info.DisabledTooltip,
+            TooltipTable = nil,
+    
+            Callback = Info.Callback,
+            Changed = Info.Changed,
+    
+            Disabled = Info.Disabled,
+            Visible = Info.Visible,
+    
+            Type = "Input",
+        }
+    
+        local Holder = New("Frame", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 48), -- Kept larger holder size
+            Visible = Input.Visible,
+            Parent = Container,
+        })
+    
+        local Label = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 14), -- Reverted to original 14
+            Text = Input.Text,
+            TextSize = 14, -- Reverted to original 14
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Parent = Holder,
+        })
+    
+        local Box = New("TextBox", {
+            AnchorPoint = Vector2.new(0, 1),
+            BackgroundColor3 = "MainColor",
+            BorderSizePixel = 0,
+            ClearTextOnFocus = not Input.Disabled and Input.ClearTextOnFocus,
+            PlaceholderText = Input.Placeholder,
+            Position = UDim2.fromScale(0, 1),
+            Size = UDim2.new(1, 0, 0, 30), -- Adjusted to 30 to fill the space
+            Text = Input.Value,
+            TextEditable = not Input.Disabled,
+            TextScaled = false,
+            TextSize = 15,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Parent = Holder,
+        })
+        
+        local Underline = New("Frame", {
+            BackgroundColor3 = "OutlineColor",
+            Position = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            Parent = Box,
+        })
+    
+        local AccentLine = New("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundColor3 = "AccentColor",
+            Position = UDim2.fromScale(0.5, 0),
+            Size = UDim2.new(0, 0, 1, 0),
+            Parent = Underline,
+        })
+    
+        New("UIPadding", {
+            PaddingBottom = UDim.new(0, 3),
+            PaddingLeft = UDim.new(0, 8),
+            PaddingRight = UDim.new(0, 8),
+            PaddingTop = UDim.new(0, 4),
+            Parent = Box,
+        })
+    
+        Box.Focused:Connect(function()
+            TweenService:Create(AccentLine, Library.TweenInfo, {
+                Size = UDim2.fromScale(1, 1)
+            }):Play()
+        end)
+        
+        Box.FocusLost:Connect(function(Enter)
+            TweenService:Create(AccentLine, Library.TweenInfo, {
+                Size = UDim2.fromScale(0, 1)
+            }):Play()
+            
+            if not Enter then
+                return
+            end
+    
+            if Input.Finished then
+                Input:SetValue(Box.Text)
+            end
+        end)
+    
+        function Input:UpdateColors()
+            if Library.Unloaded then return end
+            Label.TextTransparency = Input.Disabled and 0.8 or 0
+            Box.TextTransparency = Input.Disabled and 0.8 or 0
+        end
+    
+        function Input:OnChanged(Func)
+            Input.Changed = Func
+        end
+    
+        function Input:SetValue(Text)
+            if not Input.AllowEmpty and Trim(Text) == "" then
+                Text = Input.EmptyReset
+            end
+    
+            if Info.MaxLength and #Text > Info.MaxLength then
+                Text = Text:sub(1, Info.MaxLength)
+            end
+    
+            if Input.Numeric then
+                if #Text > 0 and not tonumber(Text) then
+                    Text = Input.Value
+                end
+            end
+    
+            Input.Value = Text
+            Box.Text = Text
+    
+            if not Input.Disabled then
+                Library:SafeCallback(Input.Callback, Input.Value)
+                Library:SafeCallback(Input.Changed, Input.Value)
+            end
+        end
+    
+        function Input:SetDisabled(Disabled: boolean)
+            Input.Disabled = Disabled
+    
+            if Input.TooltipTable then
+                Input.TooltipTable.Disabled = Input.Disabled
+            end
+    
+            Box.ClearTextOnFocus = not Input.Disabled and Input.ClearTextOnFocus
+            Box.TextEditable = not Input.Disabled
+            Input:UpdateColors()
+        end
+    
+        function Input:SetVisible(Visible: boolean)
+            Input.Visible = Visible
+            Holder.Visible = Input.Visible
+            Groupbox:Resize()
+        end
+    
+        function Input:SetText(Text: string)
+            Input.Text = Text
+            Label.Text = Text
+        end
+    
+        if not Input.Finished then
+            Box:GetPropertyChangedSignal("Text"):Connect(function()
+                Input:SetValue(Box.Text)
+            end)
+        end
+    
+        if typeof(Input.Tooltip) == "string" or typeof(Input.DisabledTooltip) == "string" then
+            Input.TooltipTable = Library:AddTooltip(Input.Tooltip, Input.DisabledTooltip, Box)
+            Input.TooltipTable.Disabled = Input.Disabled
+        end
+    
+        Groupbox:Resize()
+    
+        Input.Holder = Holder
+        table.insert(Groupbox.Elements, Input)
+        Options[Idx] = Input
+    
+        return Input
+    end
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     function Funcs:AddSlider(Idx, Info)
         Info = Library:Validate(Info, Templates.Slider)
