@@ -3485,7 +3485,7 @@ do
         return Toggle
     end
 
-    function Funcs:AddInput(Idx, Info)
+    function Funcs:AddInput_old(Idx, Info)
         Info = Library:Validate(Info, Templates.Input)
 
         local Groupbox = self
@@ -3650,7 +3650,7 @@ do
 
 
      
-    function Funcs:AddInput_new(Idx, Info)
+    function Funcs:AddInput(Idx, Info)
         Info = Library:Validate(Info, Templates.Input)
     
         local Groupbox = self
