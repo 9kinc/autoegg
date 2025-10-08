@@ -936,6 +936,8 @@ function Library:SetDPIScale(DPIScale: number)
     for _, Notification in pairs(Library.Notifications) do
         Notification:Resize()
     end
+    
+    if Library.ActiveTab and Library.ActiveTab.Show then Library.ActiveTab:Show() end
 end
 
 function Library:GiveSignal(Connection: RBXScriptConnection)
@@ -2635,7 +2637,7 @@ local BaseGroupbox = {}
 do
     local Funcs = {}
 
-    function Funcs:AddDivider()
+    function Funcs:AddDividerx()
         local Groupbox = self
         local Container = Groupbox.Container
 
@@ -2653,6 +2655,55 @@ do
             Holder = Holder,
             Type = "Divider",
         })
+    end
+    
+    
+    -- THIS IS THE NEW, CORRECTED CODE
+    function Funcs:AddDivider()
+        local Groupbox = self
+        local Container = Groupbox.Container
+    
+        local Holder = New("Frame", {
+            BackgroundColor3 = "OutlineColor", -- Use the background as the line color
+            BorderSizePixel = 0,               -- Remove the non-scaling border
+            Size = UDim2.new(1, 0, 0, 1),      -- Set height to 1px, which will be scaled
+            Parent = Container,
+        })
+    
+        Groupbox:Resize()
+    
+        table.insert(Groupbox.Elements, {
+            Holder = Holder,
+            Type = "Divider",
+        })
+    end
+    
+    
+    function Funcs:AddSpacer(Height)
+        -- Default to 20px height if no value is provided
+        Height = (typeof(Height) == "number" and Height) or 20
+
+        local Groupbox = self
+        local Container = Groupbox.Container
+
+        -- Create a simple, invisible frame to act as the spacer
+        local SpacerFrame = New("Frame", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, Height), -- Full width, specified height
+            Parent = Container,
+        })
+
+        -- Update the groupbox's size to include the new spacer
+        Groupbox:Resize()
+
+        -- Add it to the elements list for layout consistency
+        table.insert(Groupbox.Elements, {
+            Holder = SpacerFrame,
+            Type = "Spacer",
+            Visible = true,
+        })
+
+        return self -- Return the groupbox to allow for method chaining
     end
 
     function Funcs:AddLabel(...)
@@ -6371,13 +6422,26 @@ function Library:CreateWindow(WindowInfo)
             ToggleIcon.Text = collapsed and ">" or "˅"
         
             -- Resize function
-            function Groupbox:Resize()
+            function Groupbox:Resize_old()
                 if not collapsed then
                     Background.Size = UDim2.new(1, 0, 0,
                         (GroupboxList.AbsoluteContentSize.Y + 53) * Library.DPIScale
                     )
                 else
                     Background.Size = UDim2.new(1, 0, 0, 34)
+                end
+            end
+            
+            -- THIS IS THE NEW, CORRECTED RESIZE FUNCTION
+            function Groupbox:Resize()
+                if not collapsed then
+                    -- AbsoluteContentSize.Y is already scaled.
+                    -- We just need to add the extra space for the header and padding (53px), which must be scaled manually.
+                    local totalHeight = GroupboxList.AbsoluteContentSize.Y + (53 * Library.DPIScale)
+                    Background.Size = UDim2.new(1, 0, 0, totalHeight)
+                else
+                    -- When collapsed, the height is just the header's base height (34px) multiplied by the current scale.
+                    Background.Size = UDim2.new(1, 0, 0, 34 * Library.DPIScale)
                 end
             end
         
