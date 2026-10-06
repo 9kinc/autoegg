@@ -1,0 +1,17 @@
+name: ChatGPT Temporary Transfer
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt-transfer-ai-video-20261006
+      - uses: actions/upload-artifact@v4
+        with:
+          name: how-ai-works-remotion
+          path: .chatgpt-transfer/How_AI_Works_Remotion_115s.mp4
+          compression-level: 0
+          retention-days: 1
